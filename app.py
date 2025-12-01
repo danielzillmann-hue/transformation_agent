@@ -459,15 +459,42 @@ async def download_run_file(run_id: str, path: str):
     output_dir = os.path.join(BASE_OUTPUT_ROOT, run_id)
     full_path = os.path.normpath(os.path.join(output_dir, path))
 
-    # Prevent path traversal outside the run directory
-    if not full_path.startswith(os.path.abspath(output_dir)):
+    # Use absolute paths to prevent directory traversal outside the run directory
+    abs_output = os.path.abspath(output_dir)
+    abs_full = os.path.abspath(full_path)
+    if not abs_full.startswith(abs_output + os.sep) and abs_full != abs_output:
         raise HTTPException(status_code=400, detail="Invalid path")
 
-    if not os.path.exists(full_path):
+    if not os.path.exists(abs_full):
         raise HTTPException(status_code=404, detail="File not found")
 
-    if os.path.isdir(full_path):
-        raise HTTPException(status_code=400, detail="Cannot download a directory")
+    # If the path is a directory, return a simple listing so users can
+    # browse the generated Dataform project and other artefacts.
+    if os.path.isdir(abs_full):
+        entries = sorted(os.listdir(abs_full))
+        # Basic HTML directory listing
+        links = []
+        for name in entries:
+            child_rel = os.path.relpath(os.path.join(abs_full, name), output_dir).replace("\\", "/")
+            links.append(f"<li><a href='/runs/{run_id}/files/{child_rel}'>{name}</a></li>")
+        html = f"""<!doctype html>
+        <html>
+        <head>
+          <title>Files for run {run_id}</title>
+          <style>
+            body {{ font-family: Arial, sans-serif; margin: 2rem; }}
+            a {{ color: #1565c0; }}
+          </style>
+        </head>
+        <body>
+          <h1>Files under {path or '.'}</h1>
+          <ul>
+            {''.join(links)}
+          </ul>
+          <p><a href="/runs/{run_id}/summary">Back to run summary</a></p>
+        </body>
+        </html>"""
+        return HTMLResponse(content=html)
 
-    filename = os.path.basename(full_path)
-    return FileResponse(full_path, filename=filename)
+    filename = os.path.basename(abs_full)
+    return FileResponse(abs_full, filename=filename)
