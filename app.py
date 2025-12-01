@@ -3,6 +3,7 @@ from typing import List, Optional
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
 from fastapi.responses import JSONResponse, HTMLResponse, FileResponse
+from google.cloud import storage
 
 from src.service import run_pipeline
 
@@ -11,9 +12,39 @@ app = FastAPI(title="Sybase to BigQuery Agentic Migration API")
 BASE_OUTPUT_ROOT = "runs"
 
 
+def _list_gcs_buckets(project_id: str = "dan-sandpit") -> list[str]:
+    """Return all GCS bucket names in the given project.
+
+    For the POC we list all buckets in dan-sandpit so users can
+    select both the source and archive buckets from dropdowns.
+    """
+    try:
+        client = storage.Client(project=project_id)
+        return sorted([b.name for b in client.list_buckets()])
+    except Exception:
+        # Fail soft: if listing fails, return an empty list and the
+        # HTML will fall back to a disabled select.
+        return []
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index():
-    return """<!doctype html>
+    project_id = os.getenv("GCP_PROJECT_ID", "dan-sandpit")
+    buckets = _list_gcs_buckets(project_id)
+
+    def _options(selected: Optional[str] = None) -> str:
+        if not buckets:
+            return "<option value=\"\" disabled>No buckets found</option>"
+        opts = []
+        for name in buckets:
+            sel = " selected" if selected and name == selected else ""
+            opts.append(f"<option value=\"{name}\"{sel}>{name}</option>")
+        return "".join(opts)
+
+    source_bucket_default = "crownpoc" if "crownpoc" in buckets else (buckets[0] if buckets else "")
+    archive_bucket_placeholder = "e.g. crownpoc-results"
+
+    return f"""<!doctype html>
     <html>
     <head>
       <title>Sybase to BigQuery Agentic Migration</title>
@@ -175,13 +206,18 @@ async def index():
             <p>Point the agent at a Sybase / Informatica export in a Cloud Storage bucket.</p>
             <form action="/runs/gcs" method="post">
               <label>GCS Bucket
-                <input type="text" name="bucket" value="crownpoc" required />
+                <select name="bucket" required>
+                  {_options(source_bucket_default)}
+                </select>
               </label>
               <label>GCP Project ID
-                <input type="text" name="project" value="dan-sandpit" />
+                <input type="text" name="project" value="{project_id}" />
               </label>
               <label>Archive results to GCS bucket (optional)
-                <input type="text" name="archive_bucket" placeholder="e.g. crownpoc-results" />
+                <select name="archive_bucket">
+                  <option value="">-- None --</option>
+                  {_options()}
+                </select>
               </label>
               <div class="inline-option">
                 <input type="checkbox" name="skip_analysis" value="true" />
