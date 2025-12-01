@@ -214,6 +214,11 @@ module.exports = { mapSybaseType };
             f"{table_slug}.sqlx"
         )
         
+        # Ensure the domain-specific directory exists even if the domain
+        # name wasn't part of the original domain_to_dataset mapping
+        # (for example, if the LLM inferred a slightly different label).
+        os.makedirs(os.path.dirname(sqlx_path), exist_ok=True)
+        
         with open(sqlx_path, "w") as f:
             f.write(sqlx_content)
         

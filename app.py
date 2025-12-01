@@ -350,3 +350,124 @@ async def start_run_local(
     </html>"""
 
     return HTMLResponse(content=html)
+
+
+@app.get("/runs/{run_id}/summary")
+async def run_summary(request: Request, run_id: str):
+    """Return a summary of artefacts for a given run.
+
+    For browser clients, this returns an HTML page with clickable links.
+    For API clients (Accept: application/json), it returns JSON.
+    """
+    output_dir = os.path.join(BASE_OUTPUT_ROOT, run_id)
+    if not os.path.isdir(output_dir):
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    def _maybe(path: str) -> Optional[str]:
+        return path if os.path.exists(path) else None
+
+    analysis_json = _maybe(os.path.join(output_dir, "analysis_results.json"))
+    analysis_report = _maybe(os.path.join(output_dir, "analysis_report.md"))
+    dependency_graph = _maybe(os.path.join(output_dir, "dependency_graph.mmd"))
+    categorization_json = _maybe(os.path.join(output_dir, "data_categorization.json"))
+    categorization_report = _maybe(os.path.join(output_dir, "categorization_report.md"))
+    validation_tests = _maybe(os.path.join(output_dir, "validation_tests.json"))
+    validation_report = _maybe(os.path.join(output_dir, "validation_report.md"))
+
+    dataform_dir = os.path.join(output_dir, "dataform")
+    has_dataform = os.path.isdir(dataform_dir)
+
+    def _download_url(abs_path: Optional[str]) -> Optional[str]:
+        if not abs_path:
+            return None
+        rel = os.path.relpath(abs_path, output_dir)
+        return f"/runs/{run_id}/files/{rel}".replace("\\", "/")
+
+    artefacts = {
+        "analysis_results": _download_url(analysis_json),
+        "analysis_report": _download_url(analysis_report),
+        "dependency_graph": _download_url(dependency_graph),
+        "categorization_results": _download_url(categorization_json),
+        "categorization_report": _download_url(categorization_report),
+        "validation_tests": _download_url(validation_tests),
+        "validation_report": _download_url(validation_report),
+        "dataform_root": f"/runs/{run_id}/files/dataform" if has_dataform else None,
+    }
+
+    accept = request.headers.get("accept", "")
+    if "application/json" in accept:
+        return JSONResponse({"run_id": run_id, "artefacts": artefacts})
+
+    # Simple HTML summary page
+    def _row(label: str, key: str) -> str:
+        url = artefacts.get(key)
+        if not url:
+            return f"<tr><td>{label}</td><td><em>Not generated</em></td></tr>"
+        return f"<tr><td>{label}</td><td><a href='{url}'>{url}</a></td></tr>"
+
+    rows = "".join(
+        [
+            _row("Analysis results (JSON)", "analysis_results"),
+            _row("Analysis report", "analysis_report"),
+            _row("Dependency graph (Mermaid)", "dependency_graph"),
+            _row("Categorisation results (JSON)", "categorization_results"),
+            _row("Categorisation report", "categorization_report"),
+            _row("Validation tests (JSON)", "validation_tests"),
+            _row("Validation report", "validation_report"),
+            _row("Dataform project root", "dataform_root"),
+        ]
+    )
+
+    html = f"""<!doctype html>
+    <html>
+    <head>
+      <title>Run summary - {run_id}</title>
+      <style>
+        body {{ font-family: Arial, sans-serif; margin: 2rem; }}
+        h1 {{ margin-bottom: 0.5rem; }}
+        table {{ border-collapse: collapse; margin-top: 1rem; }}
+        th, td {{ border: 1px solid #e5e7eb; padding: 0.4rem 0.6rem; }}
+        th {{ background: #f3f4f6; text-align: left; }}
+        a {{ color: #1565c0; }}
+        em {{ color: #6b7280; }}
+      </style>
+    </head>
+    <body>
+      <h1>Run summary</h1>
+      <p><strong>Run ID:</strong> {run_id}</p>
+      <table>
+        <thead>
+          <tr><th>Artefact</th><th>Link</th></tr>
+        </thead>
+        <tbody>
+          {rows}
+        </tbody>
+      </table>
+      <p><a href="/">Back to start</a></p>
+    </body>
+    </html>"""
+
+    return HTMLResponse(content=html)
+
+
+@app.get("/runs/{run_id}/files/{path:path}")
+async def download_run_file(run_id: str, path: str):
+    """Serve a file from a given run's output directory.
+
+    This is a simple convenience for accessing artefacts from the browser.
+    """
+    output_dir = os.path.join(BASE_OUTPUT_ROOT, run_id)
+    full_path = os.path.normpath(os.path.join(output_dir, path))
+
+    # Prevent path traversal outside the run directory
+    if not full_path.startswith(os.path.abspath(output_dir)):
+        raise HTTPException(status_code=400, detail="Invalid path")
+
+    if not os.path.exists(full_path):
+        raise HTTPException(status_code=404, detail="File not found")
+
+    if os.path.isdir(full_path):
+        raise HTTPException(status_code=400, detail="Cannot download a directory")
+
+    filename = os.path.basename(full_path)
+    return FileResponse(full_path, filename=filename)
