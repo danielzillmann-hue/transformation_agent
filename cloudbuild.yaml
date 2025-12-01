@@ -1,28 +1,16 @@
 steps:
-  - name: gcr.io/cloud-builders/docker
-    args:
-      [
-        "build",
-        "-t",
-        "australia-southeast2-docker.pkg.dev/dan-sandpit/transformation-agent/app",
-        ".",
-      ]
-
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
     entrypoint: gcloud
     args:
       - run
       - deploy
       - transformation-agent
-      - --image
-      - australia-southeast2-docker.pkg.dev/dan-sandpit/transformation-agent/app
+      - --source
+      - .
       - --region
       - australia-southeast1
       - --allow-unauthenticated
       - --service-account=transformation-agent@dan-sandpit.iam.gserviceaccount.com
-
-images:
-  - australia-southeast2-docker.pkg.dev/dan-sandpit/transformation-agent/app
 
 options:
   logging: CLOUD_LOGGING_ONLY
