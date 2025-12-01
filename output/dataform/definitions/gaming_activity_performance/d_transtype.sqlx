@@ -1,0 +1,25 @@
+-- Dataform table definition for D_TRANSTYPE
+-- Source: Sybase
+-- Domain: Gaming Activity & Performance
+-- Dataset: crown_gaming_activity
+
+config {
+  type: "table",
+  schema: "crown_gaming_activity",
+  description: "Migrated from Sybase - Gaming Activity & Performance",
+  bigquery: {,
+    clusterBy: ["TRANSTYPEID"],
+  }
+}
+
+SELECT
+  TRANSTYPEID STRING NOT NULL,
+  TRANSTYPECODE STRING,
+  TRANSTYPEDESC STRING,
+  LegacyTransCde STRING,
+  LegacyTransDesc STRING,
+  ETLJobDtlID STRING NOT NULL,
+  TransGrp STRING,
+  SiteID STRING NOT NULL,
+  SctyCde STRING
+FROM `${ref('sybase_source')}`

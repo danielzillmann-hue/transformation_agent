@@ -1,0 +1,25 @@
+{
+  "domains": [
+    {
+      "domain_name": "Customer & Patron Management",
+      "description": "Patron data, memberships, profiles"
+    },
+    {
+      "domain_name": "Gaming Operations",
+      "description": "Gaming machines, ratings, transactions"
+    },
+    {
+      "domain_name": "Financial & Transactions",
+      "description": "Payments, promotions, jackpots"
+    },
+    {
+      "domain_name": "Location & Venue",
+      "description": "Casino locations, departments, sites"
+    },
+    {
+      "domain_name": "Reference Data",
+      "description": "Lookup tables, codes, statuses"
+    }
+  ],
+  "categorizations": {}
+}

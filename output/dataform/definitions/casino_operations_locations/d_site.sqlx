@@ -1,0 +1,21 @@
+-- Dataform table definition for D_Site
+-- Source: Sybase
+-- Domain: Casino Operations & Locations
+-- Dataset: crown_casino_operations
+
+config {
+  type: "table",
+  schema: "crown_casino_operations",
+  description: "Migrated from Sybase - Casino Operations & Locations",
+  bigquery: {,
+    clusterBy: ["SiteID"],
+  }
+}
+
+SELECT
+  SiteID STRING NOT NULL,
+  SiteNum STRING,
+  SiteName STRING,
+  SiteGrpName STRING,
+  SctyCde STRING
+FROM `${ref('sybase_source')}`

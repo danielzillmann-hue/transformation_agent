@@ -1,0 +1,148 @@
+-- Dataform transformation from Informatica mapping
+-- Mapping: m_GamingMachine
+-- Sources: S_DACOM_Device, S_DACOM_Mac_Config, UVW_S_DACOM_Class_Code_M, UVW_S_DACOM_Class_Code_T, UVW_S_DACOM_Class_Code_B
+-- Targets: D_GamingMachine
+
+config {
+  type: "view",
+  schema: "crown_default",
+  description: "Informatica mapping: m_GamingMachine",
+  dependencies: ["S_DACOM_Device", "S_DACOM_Mac_Config", "UVW_S_DACOM_Class_Code_M", "UVW_S_DACOM_Class_Code_T", "UVW_S_DACOM_Class_Code_B"]
+}
+
+MERGE INTO `${ref('D_GamingMachine')}` AS target
+USING (
+    -- CTE: SQ_GetUniqueDevices - Joins source tables and aggregates mac_config data
+    -- Aggregates S_DACOM_Mac_Config to a single row per device_id using ANY_VALUE,
+    -- assuming any value is acceptable if multiple exist for a device_id.
+    -- Joins with various class code lookup tables.
+    WITH sq_unique_devices AS (
+        SELECT
+            d.device_id,
+            d.device_name,
+            d.manufacturer,
+            d.model,
+            -- Aggregating mac_config fields to a single row per device.
+            ANY_VALUE(mc.mac_address) AS mac_address,
+            ANY_VALUE(mc.config_type) AS config_type,
+            -- Assuming common class_code_id for joins to class code tables
+            ccm.class_code_name AS machine_class_code_name,
+            cct.class_code_name AS type_class_code_name,
+            ccb.class_code_name AS brand_class_code_name,
+            d.active_status,
+            d.created_date,
+            d.last_modified_date
+        FROM `${ref('S_DACOM_Device')}` AS d
+        LEFT JOIN `${ref('S_DACOM_Mac_Config')}` AS mc
+            ON d.device_id = mc.device_id
+        LEFT JOIN `${ref('UVW_S_DACOM_Class_Code_M')}` AS ccm
+            ON d.machine_class_code_id = ccm.class_code_id -- Assuming join key
+        LEFT JOIN `${ref('UVW_S_DACOM_Class_Code_T')}` AS cct
+            ON d.type_class_code_id = cct.class_code_id    -- Assuming join key
+        LEFT JOIN `${ref('UVW_S_DACOM_Class_Code_B')}` AS ccb
+            ON d.brand_class_code_id = ccb.class_code_id   -- Assuming join key
+        GROUP BY
+            d.device_id,
+            d.device_name,
+            d.manufacturer,
+            d.model,
+            ccm.class_code_name,
+            cct.class_code_name,
+            ccb.class_code_name,
+            d.active_status,
+            d.created_date,
+            d.last_modified_date
+    ),
+    -- CTE: DCLkp_D_GamingMachine and Rtr_NewUpdate equivalent
+    -- Performs a lookup against the target D_GamingMachine to determine if records are new or existing.
+    -- This mimics the Dynamic Lookup and Router logic, setting a flag for INSERT or UPDATE.
+    source_with_lookup AS (
+        SELECT
+            sq.device_id,
+            sq.device_name,
+            sq.manufacturer,
+            sq.model,
+            sq.mac_address,
+            sq.config_type,
+            sq.machine_class_code_name,
+            sq.type_class_code_name,
+            sq.brand_class_code_name,
+            sq.active_status,
+            sq.created_date,
+            sq.last_modified_date,
+            -- Determine if record is new (NewLookupRow = 1) or existing (NewLookupRow = 2)
+            CASE
+                WHEN target_dm.device_id IS NULL THEN 1 -- New (for Upd_D_GamingMachine_New)
+                ELSE 2                                  -- Existing (for Upd_D_GamingMachine_Update)
+            END AS new_lookup_row
+        FROM sq_unique_devices AS sq
+        LEFT JOIN `${ref('D_GamingMachine')}` AS target_dm
+            ON sq.device_id = target_dm.device_id -- Assuming device_id is the business key
+    )
+    SELECT * FROM source_with_lookup
+) AS source
+ON target.device_id = source.device_id
+
+-- WHEN NOT MATCHED: Corresponds to NewLookupRow = 1 (Insert)
+WHEN NOT MATCHED AND source.new_lookup_row = 1 THEN
+    INSERT (
+        device_id,
+        device_name,
+        manufacturer,
+        model,
+        mac_address,
+        config_type,
+        machine_class_code_name,
+        type_class_code_name,
+        brand_class_code_name,
+        active_status,
+        created_date,
+        last_modified_date,
+        etl_load_dts,
+        etl_update_dts
+    )
+    VALUES (
+        source.device_id,
+        source.device_name,
+        source.manufacturer,
+        source.model,
+        source.mac_address,
+        source.config_type,
+        source.machine_class_code_name,
+        source.type_class_code_name,
+        source.brand_class_code_name,
+        source.active_status,
+        source.created_date,
+        source.last_modified_date,
+        CURRENT_TIMESTAMP(), -- Set ETL load timestamp
+        CURRENT_TIMESTAMP()  -- Set ETL update timestamp
+    )
+
+-- WHEN MATCHED: Corresponds to NewLookupRow = 2 (Update)
+WHEN MATCHED AND source.new_lookup_row = 2 THEN
+    UPDATE SET
+        device_name = source.device_name,
+        manufacturer = source.manufacturer,
+        model = source.model,
+        mac_address = source.mac_address,
+        config_type = source.config_type,
+        machine_class_code_name = source.machine_class_code_name,
+        type_class_code_name = source.type_class_code_name,
+        brand_class_code_name = source.brand_class_code_name,
+        active_status = source.active_status,
+        created_date = source.created_date,
+        last_modified_date = source.last_modified_date,
+        etl_update_dts = CURRENT_TIMESTAMP() -- Update ETL update timestamp
+    -- Optional: Only update if there are actual changes to prevent unnecessary updates
+    WHERE
+        target.device_name IS DISTINCT FROM source.device_name OR
+        target.manufacturer IS DISTINCT FROM source.manufacturer OR
+        target.model IS DISTINCT FROM source.model OR
+        target.mac_address IS DISTINCT FROM source.mac_address OR
+        target.config_type IS DISTINCT FROM source.config_type OR
+        target.machine_class_code_name IS DISTINCT FROM source.machine_class_code_name OR
+        target.type_class_code_name IS DISTINCT FROM source.type_class_code_name OR
+        target.brand_class_code_name IS DISTINCT FROM source.brand_class_code_name OR
+        target.active_status IS DISTINCT FROM source.active_status OR
+        target.created_date IS DISTINCT FROM source.created_date OR
+        target.last_modified_date IS DISTINCT FROM source.last_modified_date;

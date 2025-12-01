@@ -1,0 +1,38 @@
+-- Dataform table definition for D_PRODUCTDET
+-- Source: Sybase
+-- Domain: Gaming Products & Assets
+-- Dataset: crown_gaming_products
+
+config {
+  type: "table",
+  schema: "crown_gaming_products",
+  description: "Migrated from Sybase - Gaming Products & Assets",
+  bigquery: {,
+    clusterBy: ["PRODUCTDETID"],
+  }
+}
+
+SELECT
+  PRODUCTDETID STRING NOT NULL,
+  GAMINGPRODTYP STRING,
+  GAMINGACTIVITYCODE STRING,
+  EGM_GAMECODE STRING,
+  GAMENAME STRING,
+  SUBGAMECODE STRING,
+  SUBGAMENAME STRING,
+  TBLMINBET STRING,
+  TBLLVL STRING,
+  EGM_DENOM STRING,
+  JACKPOTFLG STRING,
+  EGMLines STRING,
+  RwrdLvl STRING,
+  EdgeTheo STRING,
+  TblMaxBet STRING,
+  AltGamingActvyCde STRING,
+  AltSubGameCde STRING,
+  AltSubGameName STRING,
+  SiteID STRING NOT NULL,
+  SctyCde STRING,
+  ETLJobDtlID STRING NOT NULL,
+  GameTyp STRING
+FROM `${ref('sybase_source')}`

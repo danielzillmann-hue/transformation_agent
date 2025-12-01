@@ -1,0 +1,33 @@
+-- Dataform table definition for D_GAMINGMACHINE
+-- Source: Sybase
+-- Domain: Gaming Products & Assets
+-- Dataset: crown_gaming_products
+
+config {
+  type: "table",
+  schema: "crown_gaming_products",
+  description: "Migrated from Sybase - Gaming Products & Assets",
+  bigquery: {,
+    clusterBy: ["GAMINGMACHINEID"],
+  }
+}
+
+SELECT
+  GAMINGMACHINEID STRING NOT NULL,
+  MANUFCODE STRING,
+  MANUFNAME STRING,
+  MACTYP STRING,
+  MACMODELNAME STRING,
+  DEVICEID STRING NOT NULL,
+  SERIALNUM STRING,
+  MacModelGrp STRING,
+  MacModelGrpName STRING,
+  MaxBillDenomAccepted STRING,
+  MacTypName STRING,
+  SiteID STRING NOT NULL,
+  SctyCde STRING,
+  TicketInFlg STRING,
+  TicketOutFlg STRING,
+  PAI STRING NOT NULL,
+  ETLJobDtlID STRING NOT NULL
+FROM `${ref('sybase_source')}`

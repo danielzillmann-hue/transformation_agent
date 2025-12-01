@@ -1,0 +1,188 @@
+-- Dataform transformation from Informatica mapping
+-- Mapping: Not found (This XML appears to be a collection of shared objects, not a complete mapping)
+-- Sources: SYCO_Player_Program (Flat File), uvw_Lkp_PATRON (Lookup Source for Lkp_Patron), D_Site (Lookup Source for Lkp_Site), M_ETL_JobDet (Lookup Source for Lkp_JobDetID), D_Code (Lookup Source for LKP_D_CODE)
+-- Targets: No explicit targets found in this XML snippet. The lookups use various database tables as their data sources (e.g., D_Site, M_ETL_JobDet, D_Code).
+
+config {
+  type: "view",
+  schema: "crown_default",
+  description: "Informatica mapping: Not found (This XML appears to be a collection of shared objects, not a complete mapping)",
+  dependencies: ["SYCO_Player_Program (Flat File)", "uvw_Lkp_PATRON (Lookup Source for Lkp_Patron)", "D_Site (Lookup Source for Lkp_Site)", "M_ETL_JobDet (Lookup Source for Lkp_JobDetID)", "D_Code (Lookup Source for LKP_D_CODE)"]
+}
+
+-- This query demonstrates how the various lookups and transformations described in the Informatica XML
+-- would be applied to the 'SYCO_Player_Program' source data.
+-- Since no explicit target is provided in the Informatica XML snippet, the output of this query
+-- represents the enriched data that would typically flow into a dimensional or fact table.
+
+WITH
+  -- 1. Source Data: Represents the SYCO_Player_Program flat file
+  --    Assuming placeholder columns required for lookups based on the transformation descriptions.
+  --    Adjust column names to match your actual SYCO_Player_Program schema.
+  source_program_data AS (
+    SELECT
+      t.ProgramNumber,
+      t.StartDt,
+      t.EndDt,
+      t.ProgramGroup,
+      t.ProgramType,
+      t.ProgramCategory,
+      t.ProgramCode,       -- Used for LKP_D_CODE (as IN_ProgramCode)
+      t.ProgramName,
+      t.DailyRate,
+      t.WeekendRate,
+      t.LegacyPatronID,    -- Used for Lkp_Patron
+      t.SiteNumber,        -- Used for Lkp_Site
+      t.PromotionDate,     -- Used for Lkp_Patron date range (as PromoDtTm)
+      t.ETLJobID,          -- Used for Lkp_JobDetID
+      -- Include any other columns from SYCO_Player_Program not explicitly listed above.
+      -- The EXCEPT clause handles this by selecting all other columns from the source.
+      t.* EXCEPT(
+        ProgramNumber, StartDt, EndDt, ProgramGroup, ProgramType,
+        ProgramCategory, ProgramCode, ProgramName, DailyRate,
+        WeekendRate, LegacyPatronID, SiteNumber, PromotionDate, ETLJobID
+      )
+    FROM
+      `${ref('SYCO_Player_Program')}` AS t
+  ),
+  -- 2. Lkp_Site: Lookup Site details
+  --    Joins based on SiteNumber from the source data to 'D_Site'.
+  lkp_site_transformed AS (
+    SELECT
+      spd.*,
+      lkp_site.SiteId,
+      lkp_site.SiteName,
+      lkp_site.SiteGrpName,
+      lkp_site.SctyCde
+    FROM
+      source_program_data AS spd
+    LEFT JOIN
+      `${ref('D_Site')}` AS lkp_site
+      ON spd.SiteNumber = lkp_site.SiteNum
+  ),
+  -- 3. Filtered D_Code: Pre-filter 'D_Code' for active codes ('Y') as per lookup description.
+  filtered_d_code AS (
+    SELECT
+      Code_Desc,
+      Code_ID,
+      Start_date,
+      End_date,
+      Is_active,
+      Code_Type,
+      SiteID
+    FROM
+      `${ref('D_Code')}`
+    WHERE
+      Is_active = 'Y'
+  ),
+  -- 4. LKP_D_CODE: Lookup Code details
+  --    Joins based on ProgramCode (as IN_ProgramCode) and SiteID obtained from Lkp_Site.
+  lkp_d_code_transformed AS (
+    SELECT
+      lst.*,
+      f_dc.Code_Desc,
+      f_dc.Code_ID,
+      f_dc.Start_date AS Code_Start_date,
+      f_dc.End_date AS Code_End_date,
+      f_dc.Is_active AS Code_Is_active,
+      f_dc.Code_Type AS Lookup_Code_Type -- Renamed to avoid collision with original ProgramCode
+    FROM
+      lkp_site_transformed AS lst
+    LEFT JOIN
+      filtered_d_code AS f_dc
+      ON lst.ProgramCode = f_dc.Code_Type
+      AND lst.SiteId = f_dc.SiteID
+  ),
+  -- 5. Lkp_Patron: Lookup Patron details
+  --    Joins based on LegacyPatronID, SiteID, and a PromotionDate range.
+  --    The date range logic (PromoDtTm < EndEffDt + 1) for inclusive EndEffDt is translated here.
+  lkp_patron_transformed AS (
+    SELECT
+      ldct.*,
+      lkp_patron.PatronID,
+      lkp_patron.StartEffDt AS Patron_StartEffDt,
+      lkp_patron.EndEffDt AS Patron_EndEffDt
+    FROM
+      lkp_d_code_transformed AS ldct
+    LEFT JOIN
+      `${ref('uvw_Lkp_PATRON')}` AS lkp_patron
+      ON ldct.LegacyPatronID = lkp_patron.LEGACYPATRONID
+      AND ldct.SiteId = lkp_patron.SiteID
+      AND ldct.PromotionDate >= lkp_patron.StartEffDt
+      AND ldct.PromotionDate < DATE_ADD(lkp_patron.EndEffDt, INTERVAL 1 DAY) -- EndEffDt inclusive logic
+  ),
+  -- 6. Filtered M_ETL_JobDet: Pre-filter for active jobs where JobEndDtTm is null.
+  filtered_m_etl_jobdet AS (
+    SELECT
+      ETLJobID,
+      SiteID,
+      JobDetID
+    FROM
+      `${ref('M_ETL_JobDet')}`
+    WHERE
+      JobEndDtTm IS NULL
+  ),
+  -- 7. Lkp_JobDetID: Lookup ETL Job Detail ID
+  --    This lookup is for contextual ETL metadata/auditing, joined on ETLJobID and SiteID.
+  lkp_job_det_transformed AS (
+    SELECT
+      lpt.*,
+      f_metl.JobDetID
+    FROM
+      lkp_patron_transformed AS lpt
+    LEFT JOIN
+      filtered_m_etl_jobdet AS f_metl
+      ON lpt.ETLJobID = f_metl.ETLJobID
+      AND lpt.SiteId = f_metl.SiteID
+  )
+-- Final Selection: Combine all enriched data and generate a surrogate key.
+-- This SELECT statement represents the final transformed dataset.
+-- In a real Dataform project, this would typically be wrapped in a `CREATE OR REPLACE TABLE` or `VIEW` statement.
+SELECT
+  -- Generate surrogate key for VIP Programs as per Seq_VIPProgramID
+  ROW_NUMBER() OVER (ORDER BY t.ProgramNumber, t.StartDt, t.ProgramCode, t.LegacyPatronID) AS VIPProgramID,
+  -- Original columns from SYCO_Player_Program
+  t.ProgramNumber,
+  t.StartDt,
+  t.EndDt,
+  t.ProgramGroup,
+  t.ProgramType,
+  t.ProgramCategory,
+  t.ProgramCode,
+  t.ProgramName,
+  t.DailyRate,
+  t.WeekendRate,
+  t.LegacyPatronID,
+  t.SiteNumber,
+  t.PromotionDate,
+  t.ETLJobID,
+  -- Any remaining original columns from SYCO_Player_Program not explicitly selected above
+  t.* EXCEPT(
+    ProgramNumber, StartDt, EndDt, ProgramGroup, ProgramType,
+    ProgramCategory, ProgramCode, ProgramName, DailyRate,
+    WeekendRate, LegacyPatronID, SiteNumber, PromotionDate, ETLJobID,
+    -- Exclude columns brought in by lookups to prevent duplication if they share names
+    SiteId, SiteName, SiteGrpName, SctyCde, Code_Desc, Code_ID,
+    Code_Start_date, Code_End_date, Code_Is_active, Lookup_Code_Type,
+    PatronID, Patron_StartEffDt, Patron_EndEffDt, JobDetID
+  ),
+  -- Lkp_Site columns
+  t.SiteId,
+  t.SiteName,
+  t.SiteGrpName,
+  t.SctyCde,
+  -- LKP_D_CODE columns
+  t.Code_Desc,
+  t.Code_ID,
+  t.Code_Start_date,
+  t.Code_End_date,
+  t.Code_Is_active,
+  t.Lookup_Code_Type,
+  -- Lkp_Patron columns
+  t.PatronID,
+  t.Patron_StartEffDt,
+  t.Patron_EndEffDt,
+  -- Lkp_JobDetID columns
+  t.JobDetID
+FROM
+  lkp_job_det_transformed AS t

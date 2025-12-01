@@ -1,0 +1,157 @@
+-- Dataform transformation from Informatica mapping
+-- Mapping: m_CasinoLocationDet_EGM
+-- Sources: S_DACOM_Location, S_DACOM_Mac_Config, S_DACOM_Device, UVW_S_DACOM_Class_Code_S, uvw_S_DACOM_Bank_Active, UVW_S_DACOM_Class_Code_Z
+-- Targets: D_CasinoLocationDet
+
+config {
+  type: "view",
+  schema: "crown_default",
+  description: "Informatica mapping: m_CasinoLocationDet_EGM",
+  dependencies: ["S_DACOM_Location", "S_DACOM_Mac_Config", "S_DACOM_Device", "UVW_S_DACOM_Class_Code_S", "uvw_S_DACOM_Bank_Active"]
+}
+
+-- Declare mapping variable $$Property_no (e.g., this could be a Dataform variable or a parameter)
+-- For demonstration, a placeholder value is used. In a real Dataform project,
+-- this would typically be configured via project variables or context.
+DECLARE PROPERTY_NO STRING DEFAULT '123';
+
+WITH
+  -- SQ_Get_Machine_Locations: Joins primary source tables and applies initial filters.
+  -- Filters for 'EGM' device types and a specific property number.
+  sq_machine_locations AS (
+    SELECT
+      loc.location_id,
+      loc.PtyLocNum,
+      loc.bank_code, -- Used for Lkp_S_DACOM_Bank
+      loc.device_id, -- Identifier for joining S_DACOM_Device
+      loc.mac_config_id, -- Identifier for joining S_DACOM_Mac_Config
+      mac.area_code,
+      mac.section_code, -- This column's usage is not explicitly stated in expression logic, but retained for potential future use.
+      dev.device_type,
+      dev.device_id AS device_id_from_device_table -- Renamed for clarity to represent the actual EGM identifier
+    FROM
+      `${ref('S_DACOM_Location')}` AS loc
+    INNER JOIN -- Assuming INNER JOIN for mandatory device and mac config existence for EGMs.
+      `${ref('S_DACOM_Device')}` AS dev
+      ON loc.device_id = dev.device_id
+    INNER JOIN
+      `${ref('S_DACOM_Mac_Config')}` AS mac
+      ON loc.mac_config_id = mac.mac_config_id
+    WHERE
+      dev.device_type = 'EGM'
+      AND loc.PtyLocNum = PROPERTY_NO
+  ),
+
+  -- Lkp_S_DACOM_Bank: Retrieves bank details (description, section, zone) from uvw_S_DACOM_Bank_Active.
+  -- This acts as the first lookup, providing intermediate values for subsequent lookups.
+  lkp_bank AS (
+    SELECT
+      sq.* EXCEPT(device_id), -- Select all columns from previous CTE, excluding a redundant 'device_id'
+      bank_lkp.description AS bank_description,
+      bank_lkp.section AS bank_section, -- The "S_DACOM_Bank_section" from mapping description
+      bank_lkp.zone AS bank_zone -- The "S_DACOM_Bank_zone" from mapping description
+    FROM
+      sq_machine_locations AS sq
+    LEFT JOIN -- Using LEFT JOIN to ensure all records from the main flow are preserved, even if lookup fails.
+      `${ref('uvw_S_DACOM_Bank_Active')}` AS bank_lkp
+      ON sq.bank_code = bank_lkp.bank_code
+  ),
+
+  -- Lkp_UVW_S_DACOM_Class_Code_S: Looks up section descriptions using the bank_section from the previous lookup.
+  lkp_class_s AS (
+    SELECT
+      lb.*, -- Select all columns from previous CTE
+      class_s_lkp.description AS section_description
+    FROM
+      lkp_bank AS lb
+    LEFT JOIN
+      `${ref('UVW_S_DACOM_Class_Code_S')}` AS class_s_lkp
+      ON lb.bank_section = class_s_lkp.class_code
+  ),
+
+  -- Lkp_UVW_S_DACOM_Class_Code_Z: Looks up zone descriptions using the bank_zone from the Lkp_S_DACOM_Bank.
+  lkp_class_z AS (
+    SELECT
+      lcs.*, -- Select all columns from previous CTE
+      class_z_lkp.description AS zone_description
+    FROM
+      lkp_class_s AS lcs
+    LEFT JOIN
+      `${ref('UVW_S_DACOM_Class_Code_Z')}` AS class_z_lkp
+      ON lcs.bank_zone = class_z_lkp.class_code
+  ),
+
+  -- Exp_TransformTargets: Applies all expression logic to derive final target columns.
+  exp_transformed_data AS (
+    SELECT
+      location_id AS CASINOLOC, -- Corresponds to a unique identifier for the casino location.
+      'EGM' AS LOCTYPCODE, -- Location type code, fixed to 'EGM' based on filter.
+      CASE
+        WHEN area_code = 'V' THEN 'VIP Gaming'
+        WHEN area_code = 'R' THEN 'Regular Gaming'
+        ELSE 'Regular Gaming' -- Default behavior of Informatica DECODE if no match.
+      END AS EGM_AREA,
+      bank_code AS EGM_BANK,
+      device_id_from_device_table AS EGM_MACHINE, -- Identifier for the specific EGM machine.
+      CASE
+        WHEN area_code = 'V' THEN 'VIP Gaming Area'
+        WHEN area_code = 'R' THEN 'Regular Gaming Area'
+        ELSE 'Main Gaming Floor' -- Assumed default descriptive name for other areas.
+      END AS EGMAreaName,
+      bank_zone AS EGMZoneCde, -- Zone code from the bank lookup.
+      zone_description AS EGMZoneDesc, -- Zone description from the class code lookup for zones.
+      bank_description AS EGMBankName, -- Bank description from the bank lookup.
+      section_description AS GamingAreaSeg, -- Gaming area segment description from the class code lookup for sections.
+      CASE
+        WHEN area_code = 'V' THEN 'VIP Gaming Area'
+        WHEN area_code = 'R' THEN 'Regular Gaming Area'
+        ELSE 'Main Gaming Floor'
+      END AS GamingAreaStrm, -- Gaming area stream, re-using EGMAreaName logic as a stream.
+      CONCAT(
+        CASE
+          WHEN area_code = 'V' THEN 'VIP Gaming Area'
+          WHEN area_code = 'R' THEN 'Regular Gaming Area'
+          ELSE 'Main Gaming Floor'
+        END,
+        ' - ',
+        COALESCE(section_description, 'Unknown Section') -- Concatenates area name and section description. Handles potential NULLs.
+      ) AS GamingAreaSegName,
+      CONCAT(
+        CASE
+          WHEN area_code = 'V' THEN 'VIP Gaming'
+          WHEN area_code = 'R' THEN 'Regular Gaming'
+          ELSE 'Regular Gaming'
+        END,
+        ' - ',
+        CASE
+          WHEN area_code = 'V' THEN 'VIP Gaming Area'
+          WHEN area_code = 'R' THEN 'Regular Gaming Area'
+          ELSE 'Main Gaming Floor'
+        END
+      ) AS GAMINGAREA, -- Derived as a combination of EGM_AREA and EGMAreaName.
+      CAST(FORMAT_DATETIME('%Y%m%d%H%M%S', CURRENT_DATETIME()) AS INT64) AS ETLJobDtlID, -- Placeholder for job detail ID, typically from a runtime variable or sequence.
+      CURRENT_DATETIME() AS ETLLoadDTS -- Standard load timestamp for the record.
+    FROM
+      lkp_class_z
+  )
+-- Final SELECT statement outputs the transformed data, ready for insertion/merge into D_CasinoLocationDet.
+-- The Update Strategy (Upd_D_CasinoLocationDet_New) in Informatica prepares this data;
+-- in BigQuery/Dataform, this SELECT represents the data to be written.
+SELECT
+  CASINOLOC,
+  LOCTYPCODE,
+  EGM_AREA,
+  EGM_BANK,
+  EGM_MACHINE,
+  EGMAreaName,
+  EGMZoneCde,
+  EGMZoneDesc,
+  EGMBankName,
+  GamingAreaSeg,
+  GamingAreaStrm,
+  GamingAreaSegName,
+  GAMINGAREA,
+  ETLJobDtlID,
+  ETLLoadDTS
+FROM
+  exp_transformed_data;

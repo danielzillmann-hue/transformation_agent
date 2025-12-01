@@ -1,0 +1,22 @@
+-- Dataform table definition for D_jackpot_product_type
+-- Source: Sybase
+-- Domain: Gaming Products & Assets
+-- Dataset: crown_gaming_products
+
+config {
+  type: "table",
+  schema: "crown_gaming_products",
+  description: "Migrated from Sybase - Gaming Products & Assets",
+  bigquery: {,
+    clusterBy: ["JkptProdTypID"],
+  }
+}
+
+SELECT
+  JkptProdTypID STRING NOT NULL,
+  SiteID STRING NOT NULL,
+  SctyCde STRING NOT NULL,
+  ETLJobDtlID STRING NOT NULL,
+  JkptProdTyp STRING NOT NULL,
+  JkptProdTypOrder STRING
+FROM `${ref('sybase_source')}`

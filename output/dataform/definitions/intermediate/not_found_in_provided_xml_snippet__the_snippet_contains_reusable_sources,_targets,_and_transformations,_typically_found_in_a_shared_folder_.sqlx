@@ -1,0 +1,345 @@
+-- Dataform transformation from Informatica mapping
+-- Mapping: Not found in provided XML snippet. The snippet contains reusable sources, targets, and transformations, typically found in a shared folder.
+-- Sources: S_ProductDet_IGT, S_ProductDet_VELO
+-- Targets: Alt_F_Patron_Work_Table
+
+config {
+  type: "view",
+  schema: "crown_default",
+  description: "Informatica mapping: Not found in provided XML snippet. The snippet contains reusable sources, targets, and transformations, typically found in a shared folder.",
+  dependencies: ["S_ProductDet_IGT", "S_ProductDet_VELO"]
+}
+
+-- Comments: This BigQuery SQL query simulates an Informatica mapping's logic for processing product details
+-- into a Slowly Changing Dimension (SCD) Type 2 table (D_PRODUCTDET).
+-- It combines data from two sources, enriches it with lookup information from D_Site and M_ETL_JobDet,
+-- and then determines which records are new, which have changed, and which remain unchanged
+-- in the D_PRODUCTDET dimension.
+-- The final output represents the complete state of the D_PRODUCTDET table after the ETL process.
+
+-- CTE 1: raw_product_details
+-- Combines product detail data from two distinct sources (S_ProductDet_IGT and S_ProductDet_VELO).
+-- Applies TRIM to string fields for consistency, as suggested by the Informatica "rtrim fields" SQL override.
+-- Assigns a SourceSystem identifier and a LoadTimestamp for tracking data arrival.
+WITH raw_product_details AS (
+    -- Source S_ProductDet_IGT: Extracts product detail attributes.
+    SELECT
+        TRIM(s.GameActivityCode) AS GameActivityCode,
+        TRIM(s.GameName) AS GameName,
+        TRIM(s.SubGameName) AS SubGameName,
+        s.JackpotFlag,
+        s.MinBet,
+        s.MaxBet,
+        s.TheoreticalEdge,
+        TRIM(s.PropertyNum) AS PropertyNum,
+        TRIM(s.SiteNumber) AS SiteNumber,
+        'IGT' AS SourceSystem,
+        CURRENT_TIMESTAMP() AS LoadTimestamp -- Timestamp representing when this batch of data was processed.
+    FROM
+        `${ref('S_ProductDet_IGT')}` AS s
+    WHERE
+        1=1 -- Placeholder for potential source-specific filtering (e.g., WHERE s.IsActive = TRUE)
+
+    UNION ALL
+
+    -- Source S_ProductDet_VELO: Extracts product detail attributes.
+    -- Assumes TheoreticalEdge might be derived or defaulted if not directly available in VELO.
+    SELECT
+        TRIM(s.GameActivityCode) AS GameActivityCode,
+        TRIM(s.GameName) AS GameName,
+        TRIM(s.SubGameName) AS SubGameName,
+        s.JackpotFlag,
+        s.MinBet,
+        s.MaxBet,
+        COALESCE(s.TheoreticalEdge, s.MaxBet) AS TheoreticalEdge, -- Assuming TheoreticalEdge might be MaxBet if null.
+        TRIM(s.PropertyNum) AS PropertyNum,
+        TRIM(s.SiteNumber) AS SiteNumber,
+        'VELO' AS SourceSystem,
+        CURRENT_TIMESTAMP() AS LoadTimestamp
+    FROM
+        `${ref('S_ProductDet_VELO')}` AS s
+    WHERE
+        1=1 -- Placeholder for potential source-specific filtering.
+),
+
+-- CTE 2: enriched_product_details_with_site
+-- Implements the 'Lkp_Site' transformation.
+-- Joins the raw product details with the D_Site dimension to retrieve Site_SK (surrogate key)
+-- and other site-related information based on SiteNumber.
+-- Uses COALESCE to handle cases where a SiteNumber might not be found, defaulting to a placeholder SK (-1).
+enriched_product_details_with_site AS (
+    SELECT
+        rpd.*, -- Selects all columns from raw_product_details
+        COALESCE(ds.Site_SK, -1) AS Site_SK -- Site surrogate key, -1 for unmatched.
+    FROM
+        raw_product_details AS rpd
+    LEFT JOIN
+        `${ref('D_Site')}` AS ds
+    ON
+        TRIM(rpd.SiteNumber) = TRIM(ds.SiteNumber) -- Lookup condition using TRIM as per Informatica's SQL override.
+),
+
+-- CTE 3: enriched_product_details
+-- Implements the 'Lkp_JobDetID' transformation.
+-- Joins the data with the M_ETL_JobDet table to retrieve the active ETL_JobDet_ID.
+-- Assumes a specific ETLJobID ('PRODUCT_DETAIL_SCD2_JOB') for this process and joins on Site_SK.
+-- Uses QUALIFY to select the most recent active job if multiple active jobs exist for the same ETLJobID and SiteID.
+enriched_product_details AS (
+    SELECT
+        rpdws.*, -- Selects all columns from enriched_product_details_with_site
+        COALESCE(mejd.ETL_JobDet_ID, -1) AS ETL_JobDet_ID -- ETL Job Detail ID, -1 for unmatched.
+    FROM
+        enriched_product_details_with_site AS rpdws
+    LEFT JOIN
+        `${ref('M_ETL_JobDet')}` AS mejd
+    ON
+        mejd.ETLJobID = 'PRODUCT_DETAIL_SCD2_JOB' -- Example ETL Job ID. In Dataform, this might be a variable.
+        AND mejd.SiteID = rpdws.Site_SK -- Joins on the Site_SK derived from the Lkp_Site.
+        AND mejd.JobEndDtTm IS NULL -- Filters for active ETL jobs only.
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY mejd.ETLJobID, mejd.SiteID ORDER BY mejd.JobStartDtTm DESC) = 1
+    -- Ensures only the latest active ETL Job Detail ID is picked if multiple exist.
+),
+
+-- CTE 4: current_d_productdet
+-- Selects all currently active records (IsCurrent = TRUE) from the existing D_PRODUCTDET dimension table.
+-- These records will be compared against the incoming source data.
+current_d_productdet AS (
+    SELECT
+        ProductDet_SK,
+        TRIM(GameName) AS GameName_BK, -- Business Key components for easy comparison
+        TRIM(SubGameName) AS SubGameName_BK,
+        TRIM(PropertyNum) AS PropertyNum_BK,
+        GameActivityCode,
+        JackpotFlag,
+        MinBet,
+        MaxBet,
+        TheoreticalEdge,
+        Site_SK,
+        StartDate,
+        EndDate,
+        IsCurrent,
+        ETL_JobDet_ID,
+        Insert_Date,
+        Update_Date
+    FROM
+        `${ref('D_PRODUCTDET')}`
+    WHERE
+        IsCurrent = TRUE
+),
+
+-- CTE 5: records_to_process
+-- This CTE is central to the 'DCLkp_D_ProductDet' (Dynamic Lookup) transformation.
+-- It compares the incoming `enriched_product_details` with `current_d_productdet` on business keys.
+-- The business key is assumed to be a combination of (GameName, SubGameName, PropertyNum).
+-- It identifies:
+--   - `existing_ProductDet_SK`: The surrogate key of the matching current record (if any).
+--   - `is_changed`: A flag indicating if any SCD Type 2 attributes have changed for an existing business key.
+--   - TRIM is applied to business keys for accurate matching as per the Informatica specification.
+records_to_process AS (
+    SELECT
+        src.GameActivityCode,
+        src.GameName,
+        src.SubGameName,
+        src.JackpotFlag,
+        src.MinBet,
+        src.MaxBet,
+        src.TheoreticalEdge,
+        src.PropertyNum,
+        src.Site_SK,
+        src.ETL_JobDet_ID,
+        src.LoadTimestamp,
+
+        -- Business Key components (trimmed)
+        TRIM(src.GameName) AS BK_GameName,
+        TRIM(src.SubGameName) AS BK_SubGameName,
+        TRIM(src.PropertyNum) AS BK_PropertyNum,
+
+        tgt.ProductDet_SK AS existing_ProductDet_SK, -- Surrogate key of the current version if matched.
+
+        -- Flag to indicate if any SCD Type 2 attribute has changed compared to the current version.
+        -- If any of these attributes differ, a new version of the record will be created.
+        (
+            COALESCE(src.GameActivityCode, '') != COALESCE(tgt.GameActivityCode, '') OR
+            COALESCE(src.JackpotFlag, FALSE) != COALESCE(tgt.JackpotFlag, FALSE) OR
+            COALESCE(src.MinBet, 0.0) != COALESCE(tgt.MinBet, 0.0) OR
+            COALESCE(src.MaxBet, 0.0) != COALESCE(tgt.MaxBet, 0.0) OR
+            COALESCE(src.TheoreticalEdge, 0.0) != COALESCE(tgt.TheoreticalEdge, 0.0) OR
+            src.Site_SK != tgt.Site_SK
+        ) AS is_changed
+    FROM
+        enriched_product_details AS src
+    LEFT JOIN
+        current_d_productdet AS tgt
+    ON
+        TRIM(src.GameName) = tgt.GameName_BK AND
+        TRIM(src.SubGameName) = tgt.SubGameName_BK AND
+        TRIM(src.PropertyNum) = tgt.PropertyNum_BK
+    -- If there are multiple incoming records for the same business key, prioritize the latest one based on LoadTimestamp.
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY TRIM(src.GameName), TRIM(src.SubGameName), TRIM(src.PropertyNum) ORDER BY src.LoadTimestamp DESC) = 1
+),
+
+-- CTE 6: rows_to_expire
+-- Identifies existing 'current' records in D_PRODUCTDET that need to be expired (IsCurrent = FALSE, EndDate set).
+-- This happens when a matching business key in the incoming data shows a change in SCD Type 2 attributes.
+rows_to_expire AS (
+    SELECT
+        current.ProductDet_SK,
+        current.GameActivityCode,
+        current.GameName_BK AS GameName,
+        current.SubGameName_BK AS SubGameName,
+        current.JackpotFlag,
+        current.MinBet,
+        current.MaxBet,
+        current.TheoreticalEdge,
+        current.PropertyNum_BK AS PropertyNum,
+        current.Site_SK,
+        current.StartDate,
+        rp.LoadTimestamp AS EndDate, -- The EndDate for the expired record is the LoadTimestamp of the new version.
+        FALSE AS IsCurrent, -- Mark as not current.
+        current.ETL_JobDet_ID,
+        current.Insert_Date,
+        rp.LoadTimestamp AS Update_Date -- Record the timestamp of expiry.
+    FROM
+        current_d_productdet AS current
+    INNER JOIN
+        records_to_process AS rp
+    ON
+        current.GameName_BK = rp.BK_GameName AND
+        current.SubGameName_BK = rp.BK_SubGameName AND
+        current.PropertyNum_BK = rp.BK_PropertyNum
+    WHERE
+        rp.is_changed IS TRUE -- Only expire records where a change was detected.
+),
+
+-- CTE 7: rows_to_insert
+-- Identifies new records (business key not found in D_PRODUCTDET) or new versions of changed records.
+-- Implements 'Seq_ProductDet_ID' by generating a new unique surrogate key (ProductDet_SK) using GENERATE_UUID().
+-- Sets IsCurrent = TRUE and StartDate to the LoadTimestamp, with a NULL EndDate.
+rows_to_insert AS (
+    SELECT
+        GENERATE_UUID() AS ProductDet_SK, -- Generates a globally unique ID for each new record/version.
+        rp.GameActivityCode,
+        rp.GameName,
+        rp.SubGameName,
+        rp.JackpotFlag,
+        rp.MinBet,
+        rp.MaxBet,
+        rp.TheoreticalEdge,
+        rp.PropertyNum,
+        rp.Site_SK,
+        rp.LoadTimestamp AS StartDate,
+        CAST(NULL AS TIMESTAMP) AS EndDate, -- New current records have a NULL EndDate.
+        TRUE AS IsCurrent, -- Mark as current.
+        rp.ETL_JobDet_ID,
+        rp.LoadTimestamp AS Insert_Date, -- InsertDate for this specific version.
+        rp.LoadTimestamp AS Update_Date
+    FROM
+        records_to_process AS rp
+    WHERE
+        rp.existing_ProductDet_SK IS NULL -- Condition for a new business key (record not found in target).
+        OR rp.is_changed IS TRUE -- Condition for an existing business key with detected changes (new version).
+),
+
+-- CTE 8: unchanged_current_records
+-- Selects all records from `current_d_productdet` that were NOT affected by the incoming data.
+-- This means they either didn't match any incoming data, or they matched but no changes were detected.
+-- These records retain their existing state in the dimension.
+unchanged_current_records AS (
+    SELECT
+        current.ProductDet_SK,
+        current.GameActivityCode,
+        current.GameName_BK AS GameName,
+        current.SubGameName_BK AS SubGameName,
+        current.JackpotFlag,
+        current.MinBet,
+        current.MaxBet,
+        current.TheoreticalEdge,
+        current.PropertyNum_BK AS PropertyNum,
+        current.Site_SK,
+        current.StartDate,
+        current.EndDate,
+        current.IsCurrent,
+        current.ETL_JobDet_ID,
+        current.Insert_Date,
+        current.Update_Date
+    FROM
+        current_d_productdet AS current
+    LEFT JOIN
+        records_to_process AS rp
+    ON
+        current.GameName_BK = rp.BK_GameName AND
+        current.SubGameName_BK = rp.BK_SubGameName AND
+        current.PropertyNum_BK = rp.BK_PropertyNum
+    WHERE
+        (rp.existing_ProductDet_SK IS NULL) -- Current record has no matching incoming record.
+        OR (rp.is_changed IS FALSE AND rp.existing_ProductDet_SK IS NOT NULL) -- Matched, but no change detected.
+)
+
+-- Final SELECT statement:
+-- Combines the three sets of records (unchanged, expired, new/inserted)
+-- to form the complete, desired state of the D_PRODUCTDET dimension table.
+-- This output can be used directly for a full table overwrite (e.g., in a Dataform 'table' model)
+-- or as the source for a MERGE statement in an incremental Dataform model.
+SELECT
+    ProductDet_SK,
+    GameActivityCode,
+    GameName,
+    SubGameName,
+    JackpotFlag,
+    MinBet,
+    MaxBet,
+    TheoreticalEdge,
+    PropertyNum,
+    Site_SK,
+    StartDate,
+    EndDate,
+    IsCurrent,
+    ETL_JobDet_ID,
+    Insert_Date,
+    Update_Date
+FROM
+    unchanged_current_records
+
+UNION ALL
+
+SELECT
+    ProductDet_SK,
+    GameActivityCode,
+    GameName,
+    SubGameName,
+    JackpotFlag,
+    MinBet,
+    MaxBet,
+    TheoreticalEdge,
+    PropertyNum,
+    Site_SK,
+    StartDate,
+    EndDate,
+    IsCurrent,
+    ETL_JobDet_ID,
+    Insert_Date,
+    Update_Date
+FROM
+    rows_to_expire
+
+UNION ALL
+
+SELECT
+    ProductDet_SK,
+    GameActivityCode,
+    GameName,
+    SubGameName,
+    JackpotFlag,
+    MinBet,
+    MaxBet,
+    TheoreticalEdge,
+    PropertyNum,
+    Site_SK,
+    StartDate,
+    EndDate,
+    IsCurrent,
+    ETL_JobDet_ID,
+    Insert_Date,
+    Update_Date
+FROM
+    rows_to_insert

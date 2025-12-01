@@ -1,0 +1,21 @@
+-- Dataform table definition for D_AGE
+-- Source: Sybase
+-- Domain: Customer & Loyalty Management
+-- Dataset: crown_customer_loyalty
+
+config {
+  type: "table",
+  schema: "crown_customer_loyalty",
+  description: "Migrated from Sybase - Customer & Loyalty Management",
+  bigquery: {,
+    clusterBy: ["AGEID"],
+  }
+}
+
+SELECT
+  AGEID STRING NOT NULL,
+  AGE STRING,
+  AGEBAND STRING,
+  SiteID STRING,
+  SctyCde STRING
+FROM `${ref('sybase_source')}`

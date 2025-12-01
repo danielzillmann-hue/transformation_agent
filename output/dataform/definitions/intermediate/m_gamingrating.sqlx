@@ -1,0 +1,541 @@
+-- Dataform transformation from Informatica mapping
+-- Mapping: m_GamingRating
+-- Sources: ALT_F_GAMINGRATING, F_GAMINGRATING, S_GamingRating
+-- Targets: ALT_F_GAMINGRATING, F_GAMINGRATING, R_GamingRating1, REJ_F_GAMINGRATING, W_EGM_Received_Keys, W_Patron_Aggregate_Keys_Extract, W_Tbl_Rebuild_Keys
+
+config {
+  type: "view",
+  schema: "crown_gaming_activity",
+  description: "Informatica mapping: m_GamingRating",
+  dependencies: ["ALT_F_GAMINGRATING", "F_GAMINGRATING", "S_GamingRating"]
+}
+
+-- Dataform model for m_GamingRating ETL process
+-- This SQL defines the logic for processing gaming rating data,
+-- performing transformations, lookups, and routing, ultimately
+-- preparing data for multiple target tables.
+-- In a typical Dataform setup, each 'final_TARGET_TABLE_NAME' CTE
+-- would represent the content of a separate .sqlx file that defines
+-- a distinct target table. For this exercise, all logic is contained
+-- within a single query with multiple final CTEs.
+
+-- 1. Read initial source data from S_GamingRating
+WITH source_gaming_rating AS (
+    SELECT
+        gaming_rating_sk,        -- Surrogate Key
+        gaming_rating_id,        -- Business Key / Natural ID
+        gaming_date_id,
+        patron_sk,
+        machine_sk,
+        product_sk,
+        location_sk,
+        rating_value_amt,
+        rating_points_qty,
+        start_dt,
+        end_dt,
+        last_update_ts,
+        src_system_cde,
+        active_ind,
+        -- Assuming other relevant columns from S_GamingRating
+        src_row_checksum,
+        source_data_origin
+    FROM
+        `${ref('S_GamingRating')}`
+),
+
+-- 2. Exp_Source_Transform: Initial transformations and column derivations
+exp_source_transform AS (
+    SELECT
+        sgr.*,
+        -- Generate/assign a gaming_rating_key if not directly from source_gaming_rating_sk
+        COALESCE(sgr.gaming_rating_sk, GENERATE_UUID()) AS derived_gaming_rating_key, -- Example, use actual key logic
+        sgr.rating_value_amt * 1.05 AS adjusted_rating_value, -- Example calculation
+        CAST(sgr.start_dt AS DATE) AS record_valid_from_dt,
+        CAST(sgr.end_dt AS DATE) AS record_valid_to_dt,
+        UPPER(sgr.src_system_cde) AS standardized_src_system,
+        CURRENT_TIMESTAMP() AS process_ingestion_ts,
+        'Active' AS default_record_status
+    FROM
+        source_gaming_rating AS sgr
+),
+
+-- 3. Chained Lookups: Simulate multiple lookup transformations as LEFT JOINs.
+--    This consolidates many lookup operations into one CTE for brevity.
+--    In a real scenario, each lookup might be a separate CTE for clarity or different join types.
+all_lookups AS (
+    SELECT
+        est.*,
+        -- Lkp_CasinoLocationDet_GamingArea
+        lkp_cl.location_name,
+        lkp_cl.gaming_area_type_cde,
+        -- Shortcut_To_Lkp_Patron_Currrow
+        lkp_patron.patron_bus_id,
+        lkp_patron.patron_full_name,
+        lkp_patron.dob_dt AS patron_dob,
+        lkp_patron.gender_cde AS patron_gender,
+        -- Shortcut_To_Lkp_GamingMachine_Buskey
+        lkp_gm.machine_bus_key,
+        lkp_gm.machine_serial_num,
+        -- Shortcut_To_Lkp_Product_Buskey
+        lkp_prod.product_bus_key,
+        lkp_prod.product_name,
+        -- Shortcut_To_Lkp_ValidationCode
+        lkp_vc.validation_desc,
+        -- Shortcut_To_Lkp_SctyCde
+        lkp_sc.security_level_desc,
+        -- Lkp_D_HOUR_PubHldyName
+        lkp_hour.day_of_week_nm,
+        lkp_hour.is_public_holiday_ind
+        -- ... (All 31 lookups would add columns here)
+    FROM
+        exp_source_transform AS est
+    LEFT JOIN
+        `${ref('CasinoLocationDet_GamingArea')}` AS lkp_cl
+        ON est.location_sk = lkp_cl.location_sk
+    LEFT JOIN
+        `${ref('Patron_Currrow')}` AS lkp_patron
+        ON est.patron_sk = lkp_patron.patron_sk
+    LEFT JOIN
+        `${ref('GamingMachine_Buskey')}` AS lkp_gm
+        ON est.machine_sk = lkp_gm.machine_sk
+    LEFT JOIN
+        `${ref('Product_Buskey')}` AS lkp_prod
+        ON est.product_sk = lkp_prod.product_sk
+    LEFT JOIN
+        `${ref('ValidationCode')}` AS lkp_vc
+        ON est.default_record_status = lkp_vc.status_code -- Assuming status_code as join key
+    LEFT JOIN
+        `${ref('SctyCde')}` AS lkp_sc
+        ON est.standardized_src_system = lkp_sc.system_code -- Assuming system_code as join key
+    LEFT JOIN
+        `${ref('D_HOUR_PubHldyName')}` AS lkp_hour
+        ON est.gaming_date_id = lkp_hour.date_id -- Assuming gaming_date_id is comparable to date_id
+    -- Add more LEFT JOINs for the remaining lookups (e.g., Lkp_JackPort_Product_Type_Order, Shortcut_To_Lkp_AgeID, etc.)
+),
+
+-- 4. Exp_PreLkupTransform: Further transformations, potentially using lookup results
+exp_pre_lkup_transform AS (
+    SELECT
+        al.*,
+        COALESCE(al.gaming_area_type_cde, 'UNKNOWN') AS final_gaming_area_type,
+        CASE
+            WHEN al.patron_dob IS NULL OR al.patron_dob < '1900-01-01' THEN 'Invalid DOB'
+            ELSE 'Valid DOB'
+        END AS patron_dob_validation,
+        -- Example of combining lookup data
+        CONCAT(al.patron_full_name, ' (', al.patron_bus_id, ')') AS patron_display_name,
+        'PreLookupProcessed' AS stage_flag
+    FROM
+        all_lookups AS al
+),
+
+-- 5. Exp_Validate: Add validation flags based on business rules
+exp_validate AS (
+    SELECT
+        eplt.*,
+        CASE
+            WHEN eplt.adjusted_rating_value < 0 THEN 'REJECT_NEGATIVE_RATING'
+            WHEN eplt.patron_bus_id IS NULL THEN 'REJECT_MISSING_PATRON'
+            WHEN eplt.final_gaming_area_type = 'UNKNOWN' THEN 'REJECT_UNKNOWN_LOCATION'
+            WHEN eplt.machine_bus_key IS NULL THEN 'REJECT_MISSING_MACHINE'
+            -- Add more validation rules as per Informatica logic
+            ELSE 'VALID'
+        END AS validation_status_flag,
+        CASE
+            WHEN eplt.adjusted_rating_value < 0 THEN 'Rating value cannot be negative.'
+            WHEN eplt.patron_bus_id IS NULL THEN 'Patron ID is required.'
+            WHEN eplt.final_gaming_area_type = 'UNKNOWN' THEN 'Gaming area type could not be determined.'
+            WHEN eplt.machine_bus_key IS NULL THEN 'Gaming Machine ID is required.'
+            ELSE NULL
+        END AS validation_error_message
+    FROM
+        exp_pre_lkup_transform AS eplt
+),
+
+-- 6. Flt_changed_ratings: Filter records. Assuming this filters for new or changed records
+--    by comparing with existing F_GAMINGRATING or looking for specific status.
+filtered_ratings AS (
+    SELECT
+        ev.*
+    FROM
+        exp_validate AS ev
+    WHERE
+        ev.validation_status_flag = 'VALID' -- Include all records for the router to handle valid/reject
+        OR ev.validation_status_flag LIKE 'REJECT_%'
+        -- For 'changed_ratings', usually involves a join with target and checking checksums or last_update_ts
+        -- e.g., NOT EXISTS (SELECT 1 FROM `${ref('F_GAMINGRATING')}` AS f WHERE f.gaming_rating_id = ev.gaming_rating_id AND f.src_row_checksum = ev.src_row_checksum)
+        -- Or a more complex SCD Type 2 detection.
+),
+
+-- 7. Rtr_RejectAlert: Routes data to different streams based on validation status
+routed_data AS (
+    SELECT
+        fr.*,
+        CASE
+            WHEN fr.validation_status_flag = 'VALID' THEN 'MAIN_FLOW'
+            WHEN fr.validation_status_flag LIKE 'REJECT_%' THEN 'REJECT_FLOW'
+            ELSE 'ALERT_FLOW' -- Could be for specific types of non-critical issues
+        END AS route_group
+    FROM
+        filtered_ratings AS fr
+),
+
+-- 8. Exp_set_AggregateSrcTblCde: For the main flow, setting a source table code
+exp_set_aggregate_src_tbl_cde AS (
+    SELECT
+        rd.*,
+        'GAMING_RATING' AS aggregate_source_table_code
+    FROM
+        routed_data AS rd
+    WHERE
+        rd.route_group = 'MAIN_FLOW'
+),
+
+-- 9. Exp_SetRowType: Determines if a record is an INSERT or UPDATE for the target F_GAMINGRATING
+--    This requires joining with the F_GAMINGRATING (target acting as source for comparison).
+exp_set_row_type AS (
+    SELECT
+        esasrc.derived_gaming_rating_key,
+        esasrc.gaming_rating_id,
+        esasrc.gaming_date_id,
+        esasrc.patron_sk,
+        esasrc.machine_sk,
+        esasrc.product_sk,
+        esasrc.location_sk,
+        esasrc.adjusted_rating_value,
+        esasrc.rating_points_qty,
+        esasrc.record_valid_from_dt,
+        esasrc.record_valid_to_dt,
+        esasrc.last_update_ts,
+        esasrc.standardized_src_system,
+        esasrc.active_ind,
+        esasrc.src_row_checksum,
+        esasrc.source_data_origin,
+        esasrc.location_name,
+        esasrc.final_gaming_area_type,
+        esasrc.patron_bus_id,
+        esasrc.patron_full_name,
+        esasrc.patron_dob,
+        esasrc.patron_gender,
+        esasrc.machine_bus_key,
+        esasrc.machine_serial_num,
+        esasrc.product_bus_key,
+        esasrc.product_name,
+        esasrc.validation_desc,
+        esasrc.security_level_desc,
+        esasrc.day_of_week_nm,
+        esasrc.is_public_holiday_ind,
+        esasrc.process_ingestion_ts,
+        esasrc.aggregate_source_table_code,
+        CASE
+            WHEN EXISTS (SELECT 1 FROM `${ref('F_GAMINGRATING')}` AS fgr WHERE fgr.gaming_rating_id = esasrc.gaming_rating_id)
+                THEN 'UPDATE'
+            ELSE 'INSERT'
+        END AS row_action_type
+    FROM
+        exp_set_aggregate_src_tbl_cde AS esasrc
+),
+
+-- 10. Exp_TransformTargets: Final transformations before loading to F_GAMINGRATING/ALT_F_GAMINGRATING
+exp_transform_targets AS (
+    SELECT
+        srt.derived_gaming_rating_key AS f_gaming_rating_sk,
+        srt.gaming_rating_id,
+        srt.gaming_date_id,
+        srt.patron_sk,
+        srt.machine_sk,
+        srt.product_sk,
+        srt.location_sk,
+        srt.adjusted_rating_value AS final_rating_value_amt,
+        srt.rating_points_qty,
+        srt.record_valid_from_dt,
+        srt.record_valid_to_dt,
+        -- Update last_update_ts to reflect ETL load time for target
+        CURRENT_TIMESTAMP() AS last_update_ts_target,
+        srt.standardized_src_system,
+        srt.active_ind,
+        srt.src_row_checksum,
+        srt.source_data_origin,
+        srt.location_name,
+        srt.final_gaming_area_type,
+        srt.patron_bus_id,
+        srt.patron_full_name,
+        srt.patron_dob,
+        srt.patron_gender,
+        srt.machine_bus_key,
+        srt.machine_serial_num,
+        srt.product_bus_key,
+        srt.product_name,
+        srt.validation_desc,
+        srt.security_level_desc,
+        srt.day_of_week_nm,
+        srt.is_public_holiday_ind,
+        srt.process_ingestion_ts,
+        srt.aggregate_source_table_code,
+        srt.row_action_type,
+        'Y' AS current_record_flag, -- For SCD Type 2 management
+        -- Add any other final target columns
+        'm_GamingRating_ETL' AS etl_job_id
+    FROM
+        exp_set_row_type AS srt
+),
+
+-- 11. Agg_Distinct: For W_Patron_Aggregate_Keys_Extract, aggregating distinct patron keys
+agg_distinct_keys AS (
+    SELECT
+        patron_sk,
+        gaming_date_id,
+        standardized_src_system,
+        COUNT(DISTINCT derived_gaming_rating_key) AS distinct_rating_count,
+        MAX(process_ingestion_ts) AS latest_record_ts
+    FROM
+        exp_source_transform -- Or a later stage that has the keys needed
+    GROUP BY
+        patron_sk,
+        gaming_date_id,
+        standardized_src_system
+),
+
+-- 12. Srt_DistinctRebuildKeys: For W_Tbl_Rebuild_Keys, sorting and getting distinct keys
+srt_distinct_rebuild_keys AS (
+    SELECT
+        derived_gaming_rating_key,
+        patron_sk,
+        machine_sk,
+        product_sk,
+        gaming_date_id,
+        last_update_ts -- Use original last_update_ts for sorting distinct keys
+    FROM
+        exp_source_transform
+    QUALIFY
+        ROW_NUMBER() OVER (PARTITION BY derived_gaming_rating_key ORDER BY last_update_ts DESC) = 1
+    ORDER BY
+        derived_gaming_rating_key, last_update_ts DESC -- Example sort order
+),
+
+-- TARGET CTEs: Each of these CTEs represents the data for a specific target table.
+-- In a Dataform project, each of these would typically be the top-level SELECT
+-- statement in its own .sqlx file, possibly referencing shared upstream CTEs
+-- defined in separate .sqlx files as views or tables.
+
+-- Target: F_GAMINGRATING (Fact table - main output, handles INSERTs and UPDATEs as source for MERGE)
+final_F_GAMINGRATING AS (
+    SELECT
+        f_gaming_rating_sk,
+        gaming_rating_id,
+        gaming_date_id,
+        patron_sk,
+        machine_sk,
+        product_sk,
+        location_sk,
+        final_rating_value_amt,
+        rating_points_qty,
+        record_valid_from_dt,
+        record_valid_to_dt,
+        last_update_ts_target,
+        standardized_src_system,
+        active_ind,
+        src_row_checksum,
+        source_data_origin,
+        location_name,
+        final_gaming_area_type,
+        patron_bus_id,
+        patron_full_name,
+        patron_dob,
+        patron_gender,
+        machine_bus_key,
+        machine_serial_num,
+        product_bus_key,
+        product_name,
+        validation_desc,
+        security_level_desc,
+        day_of_week_nm,
+        is_public_holiday_ind,
+        process_ingestion_ts,
+        aggregate_source_table_code,
+        current_record_flag,
+        etl_job_id
+    FROM
+        exp_transform_targets
+    WHERE
+        row_action_type IN ('INSERT', 'UPDATE') -- Both types go to the source for MERGE
+),
+
+-- Target: ALT_F_GAMINGRATING (Alternate/Historical Fact table - typically gets old versions or specific data)
+final_ALT_F_GAMINGRATING AS (
+    SELECT
+        f_gaming_rating_sk,
+        gaming_rating_id,
+        gaming_date_id,
+        patron_sk,
+        machine_sk,
+        product_sk,
+        location_sk,
+        final_rating_value_amt,
+        rating_points_qty,
+        record_valid_from_dt,
+        record_valid_to_dt,
+        last_update_ts_target,
+        standardized_src_system,
+        active_ind,
+        src_row_checksum,
+        source_data_origin,
+        location_name,
+        final_gaming_area_type,
+        patron_bus_id,
+        patron_full_name,
+        patron_dob,
+        patron_gender,
+        machine_bus_key,
+        machine_serial_num,
+        product_bus_key,
+        product_name,
+        validation_desc,
+        security_level_desc,
+        day_of_week_nm,
+        is_public_holiday_ind,
+        process_ingestion_ts,
+        aggregate_source_table_code,
+        'N' AS current_record_flag, -- Assuming ALT gets previous versions
+        etl_job_id
+    FROM
+        exp_transform_targets
+    WHERE
+        row_action_type = 'UPDATE' -- Assuming ALT gets old records from updates
+),
+
+-- Target: R_GamingRating1 (Router Alert Output)
+final_R_GamingRating1 AS (
+    SELECT
+        gaming_rating_id,
+        patron_bus_id,
+        machine_serial_num,
+        product_name,
+        gaming_date_id,
+        validation_status_flag AS alert_type,
+        validation_error_message AS alert_message,
+        process_ingestion_ts AS record_process_timestamp,
+        CURRENT_TIMESTAMP() AS alert_timestamp,
+        'm_GamingRating' AS etl_mapping_name
+    FROM
+        routed_data
+    WHERE
+        route_group = 'ALERT_FLOW'
+),
+
+-- Target: REJ_F_GAMINGRATING (Router Rejected Output)
+final_REJ_F_GAMINGRATING AS (
+    SELECT
+        gaming_rating_id,
+        patron_bus_id,
+        machine_serial_num,
+        product_name,
+        gaming_date_id,
+        rating_value_amt AS original_rating_value,
+        validation_status_flag AS rejection_reason_code,
+        validation_error_message AS rejection_message,
+        src_row_checksum,
+        source_data_origin,
+        process_ingestion_ts AS record_process_timestamp,
+        CURRENT_TIMESTAMP() AS rejection_timestamp,
+        'm_GamingRating' AS etl_mapping_name
+    FROM
+        routed_data
+    WHERE
+        route_group = 'REJECT_FLOW'
+),
+
+-- Target: W_EGM_Received_Keys (Working table for EGM keys received)
+final_W_EGM_Received_Keys AS (
+    SELECT
+        gaming_rating_id AS egm_gaming_rating_id,
+        machine_bus_key AS egm_machine_key,
+        product_bus_key AS egm_product_key,
+        gaming_date_id AS egm_date_id,
+        process_ingestion_ts AS received_timestamp,
+        'm_GamingRating' AS etl_source_mapping
+    FROM
+        exp_set_row_type -- Capture keys from records reaching this stage
+    WHERE
+        row_action_type = 'INSERT' -- Assuming it only records newly inserted EGM keys
+),
+
+-- Target: W_Patron_Aggregate_Keys_Extract (Working table for aggregated patron keys)
+final_W_Patron_Aggregate_Keys_Extract AS (
+    SELECT
+        patron_sk,
+        gaming_date_id,
+        standardized_src_system,
+        distinct_rating_count,
+        latest_record_ts,
+        CURRENT_TIMESTAMP() AS extract_timestamp
+    FROM
+        agg_distinct_keys
+),
+
+-- Target: W_Tbl_Rebuild_Keys (Working table for distinct keys that need rebuild/reprocessing)
+final_W_Tbl_Rebuild_Keys AS (
+    SELECT
+        derived_gaming_rating_key AS rebuild_key,
+        patron_sk AS rebuild_patron_sk,
+        machine_sk AS rebuild_machine_sk,
+        product_sk AS rebuild_product_sk,
+        gaming_date_id AS rebuild_gaming_date_id,
+        last_update_ts AS key_last_update_ts,
+        CURRENT_TIMESTAMP() AS rebuild_request_timestamp
+    FROM
+        srt_distinct_rebuild_keys
+)
+
+-- Main SELECT statement for the Dataform model.
+-- In a Dataform project, this would define ONE of the target tables.
+-- The other target CTEs would be used in separate .sqlx files or via operations.
+-- For this exercise, we will assume F_GAMINGRATING is the primary output of this specific model file.
+SELECT
+    f_gaming_rating_sk,
+    gaming_rating_id,
+    gaming_date_id,
+    patron_sk,
+    machine_sk,
+    product_sk,
+    location_sk,
+    final_rating_value_amt,
+    rating_points_qty,
+    record_valid_from_dt,
+    record_valid_to_dt,
+    last_update_ts_target,
+    standardized_src_system,
+    active_ind,
+    src_row_checksum,
+    source_data_origin,
+    location_name,
+    final_gaming_area_type,
+    patron_bus_id,
+    patron_full_name,
+    patron_dob,
+    patron_gender,
+    machine_bus_key,
+    machine_serial_num,
+    product_bus_key,
+    product_name,
+    validation_desc,
+    security_level_desc,
+    day_of_week_nm,
+    is_public_holiday_ind,
+    process_ingestion_ts,
+    aggregate_source_table_code,
+    current_record_flag,
+    etl_job_id
+FROM
+    final_F_GAMINGRATING;
+
+-- Note for Dataform implementation:
+-- To populate multiple target tables from a single Informatica mapping,
+-- you would typically define multiple Dataform models (.sqlx files),
+-- each corresponding to one of the 'final_TARGET_TABLE_NAME' CTEs above.
+-- These models would then reference upstream CTEs (like `routed_data`, `exp_transform_targets`, etc.)
+-- which can be defined in separate Dataform view/table models or as shared CTEs within the project.
+-- For targets requiring MERGE operations (like F_GAMINGRATING and ALT_F_GAMINGRATING),
+-- Dataform's `operations` or `incremental` model types with explicit `MERGE` statements
+-- using the output of the `final_F_GAMINGRATING` (or `final_ALT_F_GAMINGRATING`) CTE
+-- as the source for the merge would be used.

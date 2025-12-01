@@ -1,0 +1,79 @@
+-- Dataform transformation from Informatica mapping
+-- Mapping: m_Patron_Interest_SnapShot_Source
+-- Sources: SYCO_Patron.dmp
+-- Targets: w_patron_interest.txt, w_patron_interest_tobedeleted.txt
+
+config {
+  type: "view",
+  schema: "crown_default",
+  description: "Informatica mapping: m_Patron_Interest_SnapShot_Source",
+  dependencies: ["SYCO_Patron.dmp"]
+}
+
+WITH raw_patron_interest AS (
+  SELECT
+      PATRON_ID,
+      SITE_ID,
+      INTEREST_CODE,
+      INTEREST_DESC,
+      INTEREST_STATUS,
+      RECORD_CREATE_DATE,
+      RECORD_UPDATE_DATE
+  FROM
+      ${ref('SYCO_Patron')}
+),
+
+patron_interest_with_site AS (
+  SELECT
+      spi.PATRON_ID,
+      spi.SITE_ID,
+      ls.SITE_NAME,
+      spi.INTEREST_CODE,
+      spi.INTEREST_DESC,
+      spi.INTEREST_STATUS,
+      spi.RECORD_CREATE_DATE,
+      spi.RECORD_UPDATE_DATE
+  FROM
+      raw_patron_interest AS spi
+  LEFT JOIN
+      ${ref('LKP_SITE')} AS ls
+      ON spi.SITE_ID = ls.SITE_ID
+),
+
+patron_interest_expr AS (
+  SELECT
+      PATRON_ID,
+      SITE_ID,
+      SITE_NAME,
+      INTEREST_CODE,
+      INTEREST_DESC,
+      INTEREST_STATUS,
+      RECORD_CREATE_DATE,
+      RECORD_UPDATE_DATE,
+      TRIM(CONCAT(
+          COALESCE(TRIM(INTEREST_CODE), ''),
+          CASE WHEN COALESCE(TRIM(INTEREST_CODE), '') != '' AND COALESCE(TRIM(INTEREST_DESC), '') != '' THEN '|' ELSE '' END,
+          COALESCE(TRIM(INTEREST_DESC), '')
+      )) AS PATRON_INTEREST_COMBINED_STRING,
+      CASE
+          WHEN TRIM(COALESCE(INTEREST_CODE, '')) = '' AND TRIM(COALESCE(INTEREST_DESC, '')) = '' THEN TRUE
+          ELSE FALSE
+      END AS IS_INTEREST_EMPTY_FLAG
+  FROM
+      patron_interest_with_site
+)
+
+SELECT
+    PATRON_ID,
+    SITE_ID,
+    SITE_NAME,
+    INTEREST_CODE,
+    INTEREST_DESC,
+    INTEREST_STATUS,
+    PATRON_INTEREST_COMBINED_STRING,
+    RECORD_CREATE_DATE,
+    RECORD_UPDATE_DATE
+FROM
+    patron_interest_expr
+WHERE
+    NOT IS_INTEREST_EMPTY_FLAG

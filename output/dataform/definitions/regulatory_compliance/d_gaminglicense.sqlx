@@ -1,0 +1,26 @@
+-- Dataform table definition for D_GamingLicense
+-- Source: Sybase
+-- Domain: Regulatory & Compliance
+-- Dataset: crown_regulatory
+
+config {
+  type: "table",
+  schema: "crown_regulatory",
+  description: "Migrated from Sybase - Regulatory & Compliance",
+  bigquery: {,
+    clusterBy: ["LicID"],
+  }
+}
+
+SELECT
+  LicID STRING NOT NULL,
+  LocTypCde STRING NOT NULL,
+  LocTypDesc STRING,
+  LicNum STRING NOT NULL,
+  LicTypCde STRING NOT NULL,
+  LicTypDesc STRING,
+  LicTypGrp STRING,
+  SiteID STRING NOT NULL,
+  SctyCde STRING,
+  ETLJobDtlID STRING NOT NULL
+FROM `${ref('sybase_source')}`

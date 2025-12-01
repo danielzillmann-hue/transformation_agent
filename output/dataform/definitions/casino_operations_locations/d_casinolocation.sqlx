@@ -1,0 +1,24 @@
+-- Dataform table definition for D_CASINOLOCATION
+-- Source: Sybase
+-- Domain: Casino Operations & Locations
+-- Dataset: crown_casino_operations
+
+config {
+  type: "table",
+  schema: "crown_casino_operations",
+  description: "Migrated from Sybase - Casino Operations & Locations",
+  bigquery: {,
+    clusterBy: ["CASINOLOCID"],
+  }
+}
+
+SELECT
+  CASINOLOCID STRING NOT NULL,
+  LOCTYPCODE STRING NOT NULL,
+  EGM_AREA STRING,
+  GAMINGAREA STRING,
+  PITNUM STRING,
+  SiteID STRING NOT NULL,
+  SctyCde STRING,
+  ETLJobDtlID STRING NOT NULL
+FROM `${ref('sybase_source')}`

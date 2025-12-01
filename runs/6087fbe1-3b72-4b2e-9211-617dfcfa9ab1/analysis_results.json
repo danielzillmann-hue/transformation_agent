@@ -1,0 +1,154 @@
+{
+  "CDWFMModel.xml": {
+    "type": "informatica_xml",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "D_AGE.sql": {
+    "type": "sybase_ddl",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "D_CASINOLOCATION.sql": {
+    "type": "sybase_ddl",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "D_CASINOLOCATIONDET.sql": {
+    "type": "sybase_ddl",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "D_Comment.sql": {
+    "type": "sybase_ddl",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "D_Department.sql": {
+    "type": "sybase_ddl",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "D_GamingLicense.sql": {
+    "type": "sybase_ddl",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "D_GAMINGMACHINE.sql": {
+    "type": "sybase_ddl",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "D_HOUR.sql": {
+    "type": "sybase_ddl",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "D_jackpot_product_type.sql": {
+    "type": "sybase_ddl",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "D_PATRON.sql": {
+    "type": "sybase_ddl",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "D_Plyr_Prog.sql": {
+    "type": "sybase_ddl",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "D_PRODUCT.sql": {
+    "type": "sybase_ddl",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "D_PRODUCTDET.sql": {
+    "type": "sybase_ddl",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "D_Site.sql": {
+    "type": "sybase_ddl",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "D_Status_Code.sql": {
+    "type": "sybase_ddl",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "D_TerminalLocationDet.sql": {
+    "type": "sybase_ddl",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "D_TRANSTYP.sql": {
+    "type": "sybase_ddl",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "Domains.sql": {
+    "type": "sybase_ddl",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "F_GAMINGRATINGS.sql": {
+    "type": "sybase_ddl",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "F_Promotion_Transaction.sql": {
+    "type": "sybase_ddl",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "m_CasinoLocationDet_EGM.XML": {
+    "type": "informatica_xml",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "m_CasinoLocationDet_TG.XML": {
+    "type": "informatica_xml",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "M_ETL_JobDET.sql": {
+    "type": "sql_transformation",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "m_GamingMachine.XML": {
+    "type": "informatica_xml",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "m_GamingMachine_MTET.XML": {
+    "type": "informatica_xml",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "m_GamingRating.XML": {
+    "type": "informatica_xml",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "m_Plyr_Prog.XML": {
+    "type": "informatica_xml",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "m_ProductDet_EGM.XML": {
+    "type": "informatica_xml",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "m_ProductDet_TG.XML": {
+    "type": "informatica_xml",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "m_ProductDet_VELO_IGT.XML": {
+    "type": "informatica_xml",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "m_Promotion_Transaction.XML": {
+    "type": "informatica_xml",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "s_m_GamingRating.XML": {
+    "type": "informatica_xml",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "wkf_MEL_DLD_Syco_Dimensions.XML": {
+    "type": "informatica_xml",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "wkf_MEL_DLD_Syco_Facts.XML": {
+    "type": "informatica_xml",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "wkf_MEL_DLD_Syco_Ratings.XML": {
+    "type": "informatica_xml",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "wkl_Rating.XML": {
+    "type": "informatica_xml",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  },
+  "wkl_Ratings.XML": {
+    "type": "informatica_xml",
+    "analysis": "Error: Your default credentials were not found. To set up Application Default Credentials, see https://cloud.google.com/docs/authentication/external/set-up-adc for more information."
+  }
+}

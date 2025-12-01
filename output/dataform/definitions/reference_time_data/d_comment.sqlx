@@ -1,0 +1,21 @@
+-- Dataform table definition for D_Comment
+-- Source: Sybase
+-- Domain: Reference & Time Data
+-- Dataset: crown_reference
+
+config {
+  type: "table",
+  schema: "crown_reference",
+  description: "Migrated from Sybase - Reference & Time Data",
+  bigquery: {,
+    clusterBy: ["CmtID"],
+  }
+}
+
+SELECT
+  CmtID STRING NOT NULL,
+  CmtTypCde STRING NOT NULL,
+  CmtTypDesc STRING NOT NULL,
+  CmtDesc STRING NOT NULL,
+  ETLJobDtlID STRING NOT NULL
+FROM `${ref('sybase_source')}`

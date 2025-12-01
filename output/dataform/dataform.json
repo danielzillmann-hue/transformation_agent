@@ -1,0 +1,8 @@
+{
+  "defaultProject": "gcp-sandpit-intelia",
+  "defaultLocation": "australia-southeast2",
+  "defaultDataset": "crown_default",
+  "assertionSchema": "dataform_assertions",
+  "warehouse": "bigquery",
+  "defaultDatabase": "gcp-sandpit-intelia"
+}

@@ -1,0 +1,165 @@
+-- Dataform transformation from Informatica mapping
+-- Mapping: m_GamingMachine_MTET
+-- Sources: S_DACOM_MTET_Config, S_DACOM_Device, UVW_S_DACOM_Class_Code_M, UVW_S_DACOM_Class_Code_B, S_DACOM_Class_Code
+-- Targets: D_GAMINGMACHINE
+
+config {
+  type: "view",
+  schema: "crown_gaming_products",
+  description: "Informatica mapping: m_GamingMachine_MTET",
+  dependencies: ["S_DACOM_MTET_Config", "S_DACOM_Device", "UVW_S_DACOM_Class_Code_M", "UVW_S_DACOM_Class_Code_B", "S_DACOM_Class_Code"]
+}
+
+-- Assume parameters are defined at the Dataform project level or passed as script arguments.
+-- For Dataform, these would typically be defined in dataform.json or a custom.js file as variables.
+-- Example in Dataform:
+-- dataform.json
+-- {
+--   "vars": {
+--     "property_no": "YOUR_PROPERTY_NUMBER_HERE",
+--     "etl_job_id": 12345
+--   }
+-- }
+-- Then in SQL, use: @{property_no}, @{etl_job_id}
+-- For this exercise, using BigQuery's standard @param_name syntax for clarity.
+
+WITH source_data_raw AS (
+  -- SQ_Shortcut_to_S_DACOM_MTET_Config: Extracts, filters, and joins data from various source tables.
+  -- This CTE implements the Source Qualifier logic:
+  -- - Joins `S_DACOM_MTET_Config`, `S_DACOM_Device`, and Class_Code tables.
+  -- - Applies filters for `mterm_stat`, `device_type`, `c_code`, and `PtyLocNum`.
+  SELECT
+    cfg.Device_ID,
+    cfg.PtyLocNum, -- Assuming this maps to SiteID in the target
+    cfg.manufacturer,
+    cfg.model_group,
+    cfg.mterm_type,
+    dev.serial_no,
+    dev.description,
+    cc_m.c_long AS M_c_long, -- Manufacturer description from UVW_S_DACOM_Class_Code_M
+    cc_b.c_long AS B_c_long, -- Model Group description from UVW_S_DACOM_Class_Code_B
+    cc_x.c_long AS X_c_long  -- Machine Type description from S_DACOM_Class_Code (filtered by c_code = 'X')
+  FROM
+    ${ref('S_DACOM_MTET_Config')} AS cfg
+  INNER JOIN
+    ${ref('S_DACOM_Device')} AS dev
+    ON cfg.Device_ID = dev.Device_ID
+  LEFT JOIN
+    ${ref('UVW_S_DACOM_Class_Code_M')} AS cc_m
+    ON cfg.manufacturer = cc_m.c_code -- Join on manufacturer code
+  LEFT JOIN
+    ${ref('UVW_S_DACOM_Class_Code_B')} AS cc_b
+    ON cfg.model_group = cc_b.c_code -- Join on model group code
+  LEFT JOIN
+    ${ref('S_DACOM_Class_Code')} AS cc_x
+    ON cfg.mterm_type = cc_x.c_code AND cc_x.c_code = 'X' -- Join on mterm_type and filter for c_code 'X'
+  WHERE
+    cfg.mterm_stat = 'N' -- Filter for active machines
+    AND dev.device_type = 'MTET' -- Filter for specific device type
+    AND cfg.PtyLocNum = @property_no -- Parameterized filter for property number
+),
+transformed_data AS (
+  -- Exp_TransformTargets: Transforms and renames source fields, adds derived values and flags.
+  -- This CTE implements the Expression transformation logic:
+  -- - Renames and derives various fields like MANUFCODE, MACMODELNAME, etc.
+  -- - Sets default flag values for TicketInFlg, TicketOutFlg, and PAI.
+  -- - Performs a lookup for ETLJobDtlID using a subquery.
+  SELECT
+    sdr.PtyLocNum AS SiteID, -- Mapped from PtyLocNum
+    sdr.manufacturer AS MANUFCODE,
+    sdr.M_c_long AS MANUFNAME,
+    sdr.mterm_type AS MACTYP,
+    sdr.description AS MACMODELNAME,
+    sdr.Device_ID AS DEVICEID,
+    sdr.serial_no AS SERIALNUM,
+    sdr.model_group AS MacModelGrp,
+    TRIM(sdr.B_c_long) AS MacModelGrpName, -- Applies LTRIM/RTRIM to B_c_long
+    TRIM(sdr.X_c_long) AS MacTypName,     -- Applies LTRIM/RTRIM to X_c_long (assuming no specific SUBSTR length)
+    1 AS TicketInFlg, -- Set flag to 1
+    1 AS TicketOutFlg, -- Set flag to 1
+    '?' AS PAI,       -- Set default PAI value
+    -- LKP.SHORTCUT_TO_LKP_JOBDETID: Lookup for ETLJobDtlID
+    -- Assumes 'L_JOB_DETAIL' is a lookup table referenced via Dataform `ref`
+    (
+      SELECT ljd.ETLJobDtlID
+      FROM ${ref('L_JOB_DETAIL')} AS ljd
+      WHERE ljd.ETLJobID = @etl_job_id AND ljd.SiteID = sdr.PtyLocNum
+      LIMIT 1 -- Ensures a single scalar value is returned
+    ) AS ETLJobDtlID
+  FROM
+    source_data_raw AS sdr
+),
+prepared_for_merge AS (
+  -- DCLkp_D_GamingMachine & Rtr_NewUpdate: Dynamic Lookup and Router logic
+  -- This CTE performs a LEFT JOIN against the `D_GAMINGMACHINE` target table to identify existing records.
+  -- It then determines the action (INSERT, UPDATE, or NO_CHANGE) for each record based on the lookup result
+  -- and comparison of non-key fields, mimicking the 'Insert Else Update' behavior and Router groups.
+  SELECT
+    td.* EXCEPT (ETLJobDtlID), -- Exclude ETLJobDtlID from direct select to handle potential NULL from subquery
+    td.ETLJobDtlID, -- Select ETLJobDtlID separately to ensure proper NULL handling for comparison
+    -- Capture existing target values for comparison in the CASE statement
+    target.DEVICEID AS target_DEVICEID_key,
+    target.SiteID AS target_SiteID_key,
+    target.MANUFCODE AS target_MANUFCODE,
+    target.MANUFNAME AS target_MANUFNAME,
+    target.MACTYP AS target_MACTYP,
+    target.MACMODELNAME AS target_MACMODELNAME,
+    target.SERIALNUM AS target_SERIALNUM,
+    target.MacModelGrp AS target_MacModelGrp,
+    target.MacModelGrpName AS target_MacModelGrpName,
+    target.MacTypName AS target_MacTypName,
+    target.TicketInFlg AS target_TicketInFlg,
+    target.TicketOutFlg AS target_TicketOutFlg,
+    target.PAI AS target_PAI,
+    target.ETLJobDtlID AS target_ETLJobDtlID,
+    -- Determine the action type ('INSERT', 'UPDATE', 'NO_CHANGE')
+    CASE
+      WHEN target.DEVICEID IS NULL THEN 'INSERT' -- Record does not exist in the target table (NewLookupRow = 1)
+      WHEN -- Check if any non-key field has changed using IS DISTINCT FROM for robust NULL comparison
+           td.MANUFCODE      IS DISTINCT FROM target.MANUFCODE
+        OR td.MANUFNAME      IS DISTINCT FROM target.MANUFNAME
+        OR td.MACTYP         IS DISTINCT FROM target.MACTYP
+        OR td.MACMODELNAME   IS DISTINCT FROM target.MACMODELNAME
+        OR td.SERIALNUM      IS DISTINCT FROM target.SERIALNUM
+        OR td.MacModelGrp    IS DISTINCT FROM target.MacModelGrp
+        OR td.MacModelGrpName IS DISTINCT FROM target.MacModelGrpName
+        OR td.MacTypName     IS DISTINCT FROM target.MacTypName
+        OR td.TicketInFlg    IS DISTINCT FROM target.TicketInFlg
+        OR td.TicketOutFlg   IS DISTINCT FROM target.TicketOutFlg
+        OR td.PAI            IS DISTINCT FROM target.PAI
+        OR td.ETLJobDtlID    IS DISTINCT FROM target.ETLJobDtlID
+      THEN 'UPDATE' -- Record exists and at least one relevant field has changed (NewLookupRow = 2)
+      ELSE 'NO_CHANGE' -- Record exists but no relevant fields have changed (NewLookupRow = 0)
+    END AS action_type
+  FROM
+    transformed_data AS td
+  LEFT JOIN
+    ${ref('D_GAMINGMACHINE')} AS target
+    ON td.DEVICEID = target.DEVICEID AND td.SiteID = target.SiteID
+)
+-- Final SELECT statement to output the data for INSERT/UPDATE operations.
+-- This query produces the data *to be used* as the source in a Dataform MERGE statement
+-- or for separate INSERT/UPDATE statements, along with an 'action_type' column.
+-- Records marked 'NO_CHANGE' are excluded as they do not require any DML action.
+SELECT
+  DEVICEID,
+  SiteID,
+  MANUFCODE,
+  MANUFNAME,
+  MACTYP,
+  MACMODELNAME,
+  SERIALNUM,
+  MacModelGrp,
+  MacModelGrpName,
+  MacTypName,
+  TicketInFlg,
+  TicketOutFlg,
+  PAI,
+  ETLJobDtlID,
+  action_type
+FROM
+  prepared_for_merge
+WHERE
+  action_type IN ('INSERT', 'UPDATE') -- Filter to only include records that need to be inserted or updated
+ORDER BY
+  DEVICEID, SiteID

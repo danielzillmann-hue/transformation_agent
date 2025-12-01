@@ -1,0 +1,24 @@
+-- Dataform table definition for D_Department
+-- Source: Sybase
+-- Domain: Casino Operations & Locations
+-- Dataset: crown_casino_operations
+
+config {
+  type: "table",
+  schema: "crown_casino_operations",
+  description: "Migrated from Sybase - Casino Operations & Locations",
+  bigquery: {,
+    clusterBy: ["DeptID"],
+  }
+}
+
+SELECT
+  DeptID STRING NOT NULL,
+  DeptGrp STRING NOT NULL,
+  DeptGrpName STRING,
+  DeptNum STRING NOT NULL,
+  DeptDesc STRING,
+  SiteID STRING NOT NULL,
+  SctyCde STRING,
+  ETLJobDtlID STRING NOT NULL
+FROM `${ref('sybase_source')}`

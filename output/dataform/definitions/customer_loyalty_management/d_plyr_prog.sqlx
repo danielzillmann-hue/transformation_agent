@@ -1,0 +1,66 @@
+-- Dataform table definition for D_Plyr_Prog
+-- Source: Sybase
+-- Domain: Customer & Loyalty Management
+-- Dataset: crown_customer_loyalty
+
+config {
+  type: "table",
+  schema: "crown_customer_loyalty",
+  description: "Migrated from Sybase - Customer & Loyalty Management",
+  bigquery: {,
+    partitionBy: "ProgStartDt",
+    clusterBy: ["ProgID"],
+  }
+}
+
+SELECT
+  ProgID STRING NOT NULL,
+  ProgNum STRING NOT NULL,
+  ProgStartDt DATE,
+  ProgEndDt DATE,
+  ProgGrp STRING,
+  ProgTypCde STRING,
+  ProgTypDesc STRING,
+  ProgCatg STRING,
+  ProgCde STRING,
+  ProgName STRING,
+  ProgTaxRate NUMERIC,
+  ProgPayTypCde STRING,
+  ProgPayTypDesc STRING,
+  ProgTypValCls STRING,
+  ProgCommRate NUMERIC,
+  ProgCommTOBasis STRING,
+  ProgCompAllowRate NUMERIC,
+  ProgCompAllowTOBasis STRING,
+  ProgSts STRING,
+  ProgRbtTypCde STRING,
+  ProgRbtTypDesc STRING,
+  ProgRbtOnLossPct NUMERIC,
+  ProgEarlyPayCommRate NUMERIC,
+  ProgEarlyPayDiscOnLossPct NUMERIC,
+  ProgRgn STRING,
+  ProgState STRING,
+  ProgStateName STRING,
+  ProgCntry STRING,
+  ProgCntryName STRING,
+  ProgOfcCde STRING,
+  ProgOfcName STRING,
+  ProgNotes STRING,
+  PatronID STRING NOT NULL,
+  DaysProgOpnToDt INT64,
+  CumulativeCompValEarnedToDt NUMERIC,
+  CumulativeCompValUsedToDt NUMERIC,
+  ProgLastUpdtDt DATE,
+  PtyLocNum INT64,
+  PtyLocName STRING,
+  SiteID STRING NOT NULL,
+  SctyCde INT64,
+  ETLJobDtlID STRING NOT NULL,
+  PPPAFlg STRING,
+  ProgCrcyTyp STRING,
+  CompRolloverAmt NUMERIC,
+  CompRolloverExpDt DATE,
+  OpnCompRolloverAmt NUMERIC,
+  PrgPlyrSts STRING,
+  Segment STRING
+FROM `${ref('sybase_source')}`

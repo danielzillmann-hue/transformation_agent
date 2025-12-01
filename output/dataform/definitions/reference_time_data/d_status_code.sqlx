@@ -1,0 +1,20 @@
+-- Dataform table definition for D_Status_Code
+-- Source: Sybase
+-- Domain: Reference & Time Data
+-- Dataset: crown_reference
+
+config {
+  type: "table",
+  schema: "crown_reference",
+  description: "Migrated from Sybase - Reference & Time Data",
+  bigquery: {,
+    clusterBy: ["StsID"],
+  }
+}
+
+SELECT
+  StsID STRING NOT NULL,
+  StsTyp STRING NOT NULL,
+  StsCde STRING NOT NULL,
+  StsDesc STRING NOT NULL
+FROM `${ref('sybase_source')}`

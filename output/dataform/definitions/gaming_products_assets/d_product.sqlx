@@ -1,0 +1,26 @@
+-- Dataform table definition for D_PRODUCT
+-- Source: Sybase
+-- Domain: Gaming Products & Assets
+-- Dataset: crown_gaming_products
+
+config {
+  type: "table",
+  schema: "crown_gaming_products",
+  description: "Migrated from Sybase - Gaming Products & Assets",
+  bigquery: {,
+    clusterBy: ["PRODUCTID"],
+  }
+}
+
+SELECT
+  PRODUCTID STRING NOT NULL,
+  GAMINGPRODTYP STRING,
+  GAMINGACTIVITYCODE STRING,
+  GAMENAME STRING,
+  EGM_DENOM STRING,
+  EGM_GAMECODE STRING,
+  AltGamingActvyCde STRING,
+  SiteID STRING NOT NULL,
+  SctyCde STRING,
+  ETLJobDtlID STRING NOT NULL
+FROM `${ref('sybase_source')}`

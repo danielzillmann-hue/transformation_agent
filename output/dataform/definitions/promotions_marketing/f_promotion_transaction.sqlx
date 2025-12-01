@@ -1,0 +1,52 @@
+-- Dataform table definition for F_Promotion_Transaction
+-- Source: Sybase
+-- Domain: Promotions & Marketing
+-- Dataset: crown_promotions
+
+config {
+  type: "table",
+  schema: "crown_promotions",
+  description: "Migrated from Sybase - Promotions & Marketing",
+  bigquery: {,
+    partitionBy: "PromoTransDtTm",
+    clusterBy: ["PatronID", "PromoDeptID", "PromoID", "LegacyPromoID"],
+  }
+}
+
+SELECT
+  PatronID STRING NOT NULL,
+  PromoDeptID INT64 NOT NULL,
+  PromoID STRING NOT NULL,
+  PromoTransDtTm TIMESTAMP NOT NULL,
+  LegacyAuditStsCde STRING NOT NULL,
+  LegacyPromoID STRING NOT NULL,
+  PromoTransLocID STRING NOT NULL,
+  PromoTransHrID STRING NOT NULL,
+  PromoCmtID STRING NOT NULL,
+  LegacyPatronID STRING NOT NULL,
+  ActndResourceID STRING,
+  AuthEmpLicID STRING,
+  LegacyPromoTyp STRING NOT NULL,
+  GenericAuditStsCde STRING NOT NULL,
+  ProgNum STRING,
+  PartRdmdFlg STRING,
+  CompletelyRdmdFlg STRING,
+  TransCmtFlg STRING NOT NULL,
+  PeakRedemptionFlg STRING,
+  FaceValDlrAmt NUMERIC,
+  IntTrsfrDlrAmt NUMERIC,
+  NumPnts NUMERIC,
+  ProgID STRING NOT NULL,
+  ValidCde INT64,
+  NumCredits INT64,
+  SiteID STRING NOT NULL,
+  SctyCde INT64,
+  Qty INT64,
+  UnitVal NUMERIC,
+  ETLJobDtlID STRING NOT NULL,
+  GeneratedbySysCde STRING,
+  BillToDeptID INT64 NOT NULL,
+  Cost NUMERIC,
+  Budg NUMERIC,
+  CompType STRING
+FROM `${ref('sybase_source')}`

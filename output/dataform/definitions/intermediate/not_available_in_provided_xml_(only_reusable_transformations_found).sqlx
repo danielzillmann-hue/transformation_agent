@@ -1,0 +1,209 @@
+-- Dataform transformation from Informatica mapping
+-- Mapping: Not available in provided XML (only reusable transformations found)
+-- Sources: uvw_Lkp_PATRON, D_HOUR
+-- Targets: D_CASINOLOCATIONDET, D_Promotion_Details, D_Department
+
+config {
+  type: "view",
+  schema: "crown_casino_operations",
+  description: "Informatica mapping: Not available in provided XML (only reusable transformations found)",
+  dependencies: ["uvw_Lkp_PATRON", "D_HOUR"]
+}
+
+-- This query simulates an Informatica PowerCenter mapping in BigQuery SQL for Dataform.
+-- It processes an assumed 'main_source_data' (simulated by 'source_input' CTE)
+-- through various expression and lookup transformations to produce an enriched output dataset.
+
+-- Assume a main source table that contains all necessary input columns
+-- for the transformations. This CTE simulates that initial data for demonstration.
+-- In a real scenario, this would be your primary source table, e.g., `${ref('your_transaction_source_table')}`.
+WITH source_input AS (
+  SELECT
+    'TRN001' AS TransactionID, -- Unique identifier for the transaction
+    'CP' AS LegacyPromoType_in,
+    'ISSD' AS GenericAuditStsCde_in,
+    'PromoLvl1_ValA' AS PromotionLevel1_in,
+    NULL AS PromotionLevel2_in, -- Example NULL for defaulting
+    'PromoLvl3_ValC' AS PromotionLevel3_in,
+    'PromoLvl4_ValD' AS PromotionLevel4_in,
+    'PromoLvl5_ValE' AS PromotionLevel5_in, -- Input for PromoDetails lookup, not part of Exp_PromoLvl1_4_Defaults
+    'LOC_A' AS CASINOLOC_in,
+    'AREA_X' AS TBLAREA_in,
+    'Site1' AS SiteID_in,
+    'SC_A' AS SecurityCode_in, -- Input for Lkp_CasinoLocationDetail's SctyCde match
+    'DPT10' AS DeptNum_in,
+    'LEGACYP001' AS LEGACYPATRONID_in,
+    DATE '2023-10-26' AS PROMOTIONTRANSACTIONDATE_in,
+    14 AS HOURNUMWITHINDAY_in
+  UNION ALL
+  SELECT
+    'TRN002' AS TransactionID,
+    'DP' AS LegacyPromoType_in,
+    'RDMD' AS GenericAuditStsCde_in,
+    NULL AS PromotionLevel1_in,
+    'PromoLvl2_ValB' AS PromotionLevel2_in,
+    'PromoLvl3_ValF' AS PromotionLevel3_in,
+    NULL AS PromotionLevel4_in,
+    'PromoLvl5_ValG' AS PromotionLevel5_in,
+    'LOC_B' AS CASINOLOC_in,
+    'AREA_Y' AS TBLAREA_in,
+    'Site2' AS SiteID_in,
+    'SC_B' AS SecurityCode_in,
+    'DPT20' AS DeptNum_in,
+    'LEGACYP002' AS LEGACYPATRONID_in,
+    DATE '2023-10-27' AS PROMOTIONTRANSACTIONDATE_in,
+    9 AS HOURNUMWITHINDAY_in
+  UNION ALL
+  SELECT
+    'TRN003' AS TransactionID,
+    'CM' AS LegacyPromoType_in,
+    'OTHER' AS GenericAuditStsCde_in,
+    'CM_Val1' AS PromotionLevel1_in,
+    NULL AS PromotionLevel2_in,
+    'CM_Val3' AS PromotionLevel3_in,
+    NULL AS PromotionLevel4_in,
+    'CM_Val5' AS PromotionLevel5_in,
+    'LOC_A' AS CASINOLOC_in, -- Duplicate for CasinoLocationDetail test
+    'AREA_X' AS TBLAREA_in,
+    'Site1' AS SiteID_in,
+    'SC_A_ALT' AS SecurityCode_in, -- Different security code for same loc/site to test ordering
+    'DPT10' AS DeptNum_in,
+    'LEGACYP003' AS LEGACYPATRONID_in,
+    DATE '2023-10-28' AS PROMOTIONTRANSACTIONDATE_in,
+    10 AS HOURNUMWITHINDAY_in
+),
+
+-- Exp_PromoLvl1_4_Defaults: Sets default values for promotion levels (1-4)
+-- and derives PromoReferenceKey based on LegacyPromoType.
+exp_promo_lvl_defaults AS (
+  SELECT
+    s.*,
+    COALESCE(s.PromotionLevel1_in, 'UNKNOWN') AS PromotionLevel1,
+    COALESCE(s.PromotionLevel2_in, 'UNKNOWN') AS PromotionLevel2,
+    COALESCE(s.PromotionLevel3_in, 'UNKNOWN') AS PromotionLevel3,
+    COALESCE(s.PromotionLevel4_in, 'UNKNOWN') AS PromotionLevel4,
+    CASE
+      WHEN s.LegacyPromoType_in = 'CM' THEN s.PromotionLevel1_in
+      ELSE 'DFLT'
+    END AS PromoReferenceKey
+  FROM source_input s
+),
+
+-- Exp_AlwaysInsertPromotionTransaction: Determines if a promotion transaction
+-- should always result in an insert operation based on specific conditions.
+exp_always_insert_flag AS (
+  SELECT
+    epl.*,
+    (epl.LegacyPromoType_in = 'CP' AND epl.GenericAuditStsCde_in = 'ISSD')
+    OR (epl.LegacyPromoType_in = 'DP' AND epl.GenericAuditStsCde_in = 'RDMD') AS AlwaysInsertFlag
+  FROM exp_promo_lvl_defaults epl
+),
+
+-- Lkp_CasinoLocationDetail: Looks up CASINOLOCDETID from D_CASINOLOCATIONDET.
+-- The lookup involves CASINOLOC, TBLAREA, SiteID, and a derived Security Code (simulated as SecurityCode_in).
+-- 'QUALIFY ROW_NUMBER() OVER (...)' is used to handle multiple matches based on the specified ordering.
+lkp_casino_location AS (
+  SELECT
+    eif.*,
+    dcl.CASINOLOCDETID
+  FROM exp_always_insert_flag eif
+  LEFT JOIN `${ref('D_CASINOLOCATIONDET')}` dcl
+    ON eif.CASINOLOC_in = dcl.CASINOLOC
+    AND eif.TBLAREA_in = dcl.TBLAREA
+    AND eif.SiteID_in = dcl.SiteID
+    AND eif.SecurityCode_in = dcl.SctyCde -- Assumed match for 'derived security code'
+  QUALIFY ROW_NUMBER() OVER (
+    PARTITION BY
+      eif.TransactionID
+    ORDER BY
+      dcl.SiteID, dcl.CASINOLOC, dcl.SctyCde, dcl.CASINOLOCDETID
+  ) = 1 -- Ensures only one match per source row based on specific ordering
+),
+
+-- Lkp_PromotionDetails: Looks up PromoID from D_Promotion_Details.
+-- Matches based on promotion levels, legacy type, promo reference key, and site ID.
+lkp_promotion_details AS (
+  SELECT
+    lcl.*,
+    dpd.PromoID
+  FROM lkp_casino_location lcl
+  LEFT JOIN `${ref('D_Promotion_Details')}` dpd
+    ON lcl.PromotionLevel1 = dpd.PromoLvl1
+    AND lcl.PromotionLevel2 = dpd.PromoLvl2
+    AND lcl.PromotionLevel3 = dpd.PromoLvl3
+    AND lcl.PromotionLevel4 = dpd.PromoLvl4
+    AND lcl.PromotionLevel5_in = dpd.PromoLvl5 -- PromoLvl5 comes directly from source, not expression
+    AND lcl.LegacyPromoType_in = dpd.LegacyPromoTyp
+    AND lcl.PromoReferenceKey = dpd.PromoRefKey
+    AND lcl.SiteID_in = dpd.SiteID
+),
+
+-- Lkp_Department: Looks up DeptID from D_Department.
+-- Matches based on department number and site ID.
+lkp_department AS (
+  SELECT
+    lpd.*,
+    dd.DeptID
+  FROM lkp_promotion_details lpd
+  LEFT JOIN `${ref('D_Department')}` dd
+    ON lpd.DeptNum_in = dd.DeptNum
+    AND lpd.SiteID_in = dd.SiteID
+),
+
+-- Lkp_Patron: Looks up PATRONID from uvw_Lkp_PATRON.
+-- Matches based on legacy patron ID, site ID, and ensures the transaction date
+-- falls within the patron's effective date range.
+lkp_patron AS (
+  SELECT
+    ld.*,
+    ulp.PATRONID
+  FROM lkp_department ld
+  LEFT JOIN `${ref('uvw_Lkp_PATRON')}` ulp
+    ON ld.LEGACYPATRONID_in = ulp.LEGACYPATRONID
+    AND ld.SiteID_in = ulp.SiteID
+    AND ld.PROMOTIONTRANSACTIONDATE_in BETWEEN ulp.BEGEFFDT AND ulp.ENDEFFDT
+),
+
+-- Lkp_Hour: Looks up HOURID from D_HOUR.
+-- Matches based on the hour number within the day and the full date.
+lkp_hour AS (
+  SELECT
+    lp.*,
+    dh.HOURID
+  FROM lkp_patron lp
+  LEFT JOIN `${ref('D_HOUR')}` dh
+    ON lp.HOURNUMWITHINDAY_in = dh.HOURNUMWITHINDAY
+    AND lp.PROMOTIONTRANSACTIONDATE_in = dh.FULLDT -- Assumes FULLDT is a DATE column
+)
+
+-- Final SELECT statement to output the transformed data, including original inputs,
+-- derived expression values, and all looked-up dimension keys.
+SELECT
+  -- Original Source Columns (or a selection of them to carry forward)
+  src.TransactionID,
+  src.LegacyPromoType_in,
+  src.GenericAuditStsCde_in,
+  src.CASINOLOC_in,
+  src.TBLAREA_in,
+  src.SiteID_in,
+  src.DeptNum_in,
+  src.LEGACYPATRONID_in,
+  src.PROMOTIONTRANSACTIONDATE_in,
+  src.HOURNUMWITHINDAY_in,
+  src.PromotionLevel5_in, -- This was an input for lookup, but not processed by expression
+
+  -- Derived Expression Columns
+  src.PromotionLevel1,
+  src.PromotionLevel2,
+  src.PromotionLevel3,
+  src.PromotionLevel4,
+  src.PromoReferenceKey,
+  src.AlwaysInsertFlag,
+
+  -- Looked-up Dimension Keys
+  src.CASINOLOCDETID,
+  src.PromoID,
+  src.DeptID,
+  src.PATRONID,
+  src.HOURID
+FROM lkp_hour src

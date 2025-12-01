@@ -1,0 +1,144 @@
+-- Dataform transformation from Informatica mapping
+-- Mapping: m_Cache_Lkp_Patron_Currrow
+-- Sources: Stub_Source
+-- Targets: shortcut_to_stub_target11.out, stub_target.out
+
+config {
+  type: "view",
+  schema: "crown_default",
+  description: "Informatica mapping: m_Cache_Lkp_Patron_Currrow",
+  dependencies: ["Stub_Source"]
+}
+
+WITH
+  source_data AS (
+    -- Source Qualifier: SQ_Shortcut_To_Stub_Source
+    -- Reads all available data from the Stub_Source table.
+    -- Assuming common primary key 'stub_id' and a linking key 'patron_id'.
+    SELECT
+      stub_id,
+      patron_id,
+      -- Assuming other relevant columns from Stub_Source
+      stub_source_col1 AS original_stub_col1,
+      stub_source_col2 AS original_stub_col2
+    FROM
+      `${ref('Stub_Source')}`
+  ),
+  exp_trans AS (
+    -- Expression: EXPTRANS
+    -- This transformation typically performs data type conversions, simple calculations, or renames columns.
+    -- Assuming it passes all columns through and potentially adds a simple derived column for demonstration.
+    SELECT
+      source_data.*,
+      -- Placeholder for a derived column from EXPTRANS
+      'EXPTRANS_PROCESSED_FLAG' AS exp_trans_processed_flag
+    FROM
+      source_data
+  ),
+  lkp_patron_currrow_output AS (
+    -- Lookup Procedure: Shortcut_To_Lkp_Patron_Currrow
+    -- Performs a connected lookup on the 'Lkp_Patron_Currrow' table.
+    -- Assuming a LEFT JOIN to bring in patron current row attributes based on a common 'patron_id'.
+    SELECT
+      T1.*,
+      -- Select specific columns from Lkp_Patron_Currrow to avoid name clashes and represent lookup output ports
+      T2.currrow_attribute1,
+      T2.currrow_attribute2,
+      T2.effective_date AS currrow_effective_date,
+      T2.expiration_date AS currrow_expiration_date
+    FROM
+      exp_trans AS T1
+    LEFT JOIN
+      `${ref('Lkp_Patron_Currrow')}` AS T2
+      ON T1.patron_id = T2.patron_id
+  ),
+  lkp_date_attributes_output AS (
+    -- Lookup Procedure: Shortcut_to_Lkp_Patron_CurrRow_DateAttibutes
+    -- Performs another connected lookup on 'Lkp_Patron_CurrRow_DateAttibutes'.
+    -- Assuming a LEFT JOIN to add date-related attributes.
+    SELECT
+      T1.*,
+      T2.date_attribute1,
+      T2.date_attribute2
+    FROM
+      lkp_patron_currrow_output AS T1
+    LEFT JOIN
+      `${ref('Lkp_Patron_CurrRow_DateAttibutes')}` AS T2
+      ON T1.patron_id = T2.patron_id
+  ),
+  exp_others_pre AS (
+    -- Expression: exp_lkp_Patron_Currrow_Others_pre
+    -- An expression transformation for pre-processing or initial calculations.
+    -- Assuming it passes all columns through and potentially adds another derived column.
+    SELECT
+      lkp_date_attributes_output.*,
+      'PRE_LKP_OTHERS_FLAG' AS pre_lkp_others_flag -- Placeholder
+    FROM
+      lkp_date_attributes_output
+  ),
+  exp_others_post AS (
+    -- Expression: exp_lkp_Patron_Currrow_Others_post
+    -- Further expression transformation, possibly for final calculations or adjustments.
+    -- Assuming it passes all columns through and potentially adds a final derived column.
+    SELECT
+      exp_others_pre.*,
+      'POST_LKP_OTHERS_FLAG' AS post_lkp_others_flag -- Placeholder
+    FROM
+      exp_others_pre
+  ),
+  lkp_unified_sycoid_output AS (
+    -- Lookup Procedure: Shortcut_to_Lkp_Patron_Currrow_Unified_SycoID
+    -- Performs a lookup on the 'Lkp_Patron_Currrow_Unified_SycoID' table.
+    -- Assuming a LEFT JOIN to bring in Unified SycoID related information.
+    SELECT
+      T1.*,
+      T2.unified_sycoid_value,
+      T2.syco_id_type
+    FROM
+      exp_others_post AS T1
+    LEFT JOIN
+      `${ref('Lkp_Patron_Currrow_Unified_SycoID')}` AS T2
+      ON T1.patron_id = T2.patron_id
+  ),
+  lkp_patron_output AS (
+    -- Lookup Procedure: Shortcut_To_Lkp_Patron
+    -- Final lookup on the 'Lkp_Patron' table.
+    -- Assuming a LEFT JOIN to get general patron details.
+    SELECT
+      T1.*,
+      T2.patron_name,
+      T2.patron_type,
+      T2.patron_status,
+      T2.patron_email
+    FROM
+      lkp_unified_sycoid_output AS T1
+    LEFT JOIN
+      `${ref('Lkp_Patron')}` AS T2
+      ON T1.patron_id = T2.patron_id
+  )
+-- Final SELECT statement for the target tables.
+-- This represents the combined, transformed, and looked-up data that would be written
+-- to the 'shortcut_to_stub_target11.out' and 'stub_target.out' files,
+-- acting as the cached lookup dataset.
+SELECT
+  stub_id,
+  patron_id,
+  original_stub_col1,
+  original_stub_col2,
+  exp_trans_processed_flag,
+  currrow_attribute1,
+  currrow_attribute2,
+  currrow_effective_date,
+  currrow_expiration_date,
+  date_attribute1,
+  date_attribute2,
+  pre_lkp_others_flag,
+  post_lkp_others_flag,
+  unified_sycoid_value,
+  syco_id_type,
+  patron_name,
+  patron_type,
+  patron_status,
+  patron_email
+FROM
+  lkp_patron_output

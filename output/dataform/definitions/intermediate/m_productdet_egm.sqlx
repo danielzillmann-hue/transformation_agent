@@ -1,0 +1,110 @@
+-- Dataform transformation from Informatica mapping
+-- Mapping: m_ProductDet_EGM
+-- Sources: S_DACOM_Mac_Config, uvw_S_DACOM_Class_Code_N, uvw_S_DACOM_Class_Code_M, S_DACOM_Device
+-- Targets: D_ProductDet
+
+config {
+  type: "view",
+  schema: "crown_default",
+  description: "Informatica mapping: m_ProductDet_EGM",
+  dependencies: ["S_DACOM_Mac_Config", "uvw_S_DACOM_Class_Code_N", "uvw_S_DACOM_Class_Code_M", "S_DACOM_Device"]
+}
+
+-- Declare a variable for the $$Property_no filter.
+-- In a Dataform project, this could be configured via a variable or a compile-time argument.
+-- For direct execution, replace 'YOUR_PROPERTY_NUMBER_HERE' with the actual value.
+DECLARE PROPERTY_NO_FILTER STRING DEFAULT 'YOUR_PROPERTY_NUMBER_HERE';
+
+-- This SQL query implements the 'NEW' branch of the Informatica mapping m_ProductDet_EGM,
+-- preparing data for insertion into the D_ProductDet target table.
+
+WITH
+  -- SQ_Join_And_Sort:
+  -- Joins the primary source tables.
+  -- Selects distinct combinations of key attributes for product identification.
+  -- Filters records based on the $$Property_no mapping variable.
+  -- Assumes common join keys based on table names and typical data models.
+  source_qualifier_output AS (
+    SELECT DISTINCT
+      mc.ext_code,
+      mc.game_code,
+      mc.denomination,
+      ccm.c_long, -- Assuming 'c_long' is retrieved from uvw_S_DACOM_Class_Code_M
+      mc.PtyLocNum -- Assuming 'PtyLocNum' is a column in S_DACOM_Mac_Config
+    FROM
+      ${ref('S_DACOM_Mac_Config')} AS mc
+      -- S_DACOM_Device is a source, but its columns are not specified as output for SQ_Join_And_Sort.
+      -- It's included here with a LEFT JOIN, assuming it might be for implicit filtering or context.
+      LEFT JOIN ${ref('S_DACOM_Device')} AS sd
+        ON mc.device_id = sd.device_id -- Common join key assumption
+      -- uvw_S_DACOM_Class_Code_M is joined to retrieve 'c_long'.
+      LEFT JOIN ${ref('uvw_S_DACOM_Class_Code_M')} AS ccm
+        ON mc.ext_code = ccm.ext_code -- Common join key assumption for class codes
+    WHERE
+      mc.Property_no = PROPERTY_NO_FILTER
+  ),
+
+  -- Agg_RemoveDuplicates:
+  -- Further ensures data uniqueness by grouping on the core product identifiers:
+  -- ext_code, game_code, and denomination.
+  -- ANY_VALUE is used for 'c_long' and 'PtyLocNum' to pick one value in case
+  -- source_qualifier_output had multiple combinations for the same group (e.g., if DISTINCT
+  -- was applied to all 5 columns, but the aggregator groups on 3).
+  unique_aggregated_data AS (
+    SELECT
+      ext_code,
+      game_code,
+      denomination,
+      ANY_VALUE(c_long) AS c_long,
+      ANY_VALUE(PtyLocNum) AS pty_loc_num
+    FROM
+      source_qualifier_output
+    GROUP BY
+      ext_code,
+      game_code,
+      denomination
+  ),
+
+  -- Lkp_UVW_S_DACOM_Class_Code_N:
+  -- Performs a lookup against uvw_S_DACOM_Class_Code_N using 'game_code' and 'PtyLocNum'.
+  -- This determines if a record is 'NEW' (no match) or 'UPDATE' (match).
+  -- Assumes 'class_name' and 'description' are the relevant details to retrieve.
+  data_with_lookup_status AS (
+    SELECT
+      uad.ext_code,
+      uad.game_code,
+      uad.denomination,
+      uad.c_long,
+      uad.pty_loc_num,
+      ccn.class_name AS lookup_class_name, -- Retrieved from lookup
+      ccn.description AS lookup_class_description, -- Retrieved from lookup
+      -- Simulate Informatica's NewLookupRow: 1 for no match (NEW), 2 for match (UPDATE).
+      CASE
+        WHEN ccn.game_code IS NULL THEN 1 -- No match in lookup table (NewLookupRow = 1)
+        ELSE 2 -- Match found in lookup table (NewLookupRow = 2)
+      END AS new_lookup_row_status
+    FROM
+      unique_aggregated_data AS uad
+      LEFT JOIN ${ref('uvw_S_DACOM_Class_Code_N')} AS ccn
+        ON uad.game_code = ccn.game_code
+        AND uad.pty_loc_num = ccn.PtyLocNum -- Lookup join keys
+  )
+
+-- Rtr_NewUpdate and Upd_D_ProductDet_New:
+-- Filters the data stream for records marked as 'NEW' (new_lookup_row_status = 1)
+-- and selects/renames columns for direct insertion into D_ProductDet.
+SELECT
+  ext_code AS product_ext_code,
+  game_code AS product_game_code,
+  denomination AS product_denomination,
+  c_long AS product_class_long_desc,
+  pty_loc_num AS product_property_location_num,
+  lookup_class_name AS product_class_name,
+  lookup_class_description AS product_class_description,
+  CURRENT_TIMESTAMP() AS created_at, -- Common audit column
+  'm_ProductDet_EGM' AS created_by_mapping -- Common audit column
+FROM
+  data_with_lookup_status
+WHERE
+  new_lookup_row_status = 1 -- Filters for the 'NEW' branch (DD_INSERT)
+;

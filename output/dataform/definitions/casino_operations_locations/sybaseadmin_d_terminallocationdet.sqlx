@@ -1,0 +1,35 @@
+-- Dataform table definition for sybaseadmin.D_TerminalLocationDet
+-- Source: Sybase
+-- Domain: Casino Operations & Locations
+-- Dataset: crown_casino_operations
+
+config {
+  type: "table",
+  schema: "crown_casino_operations",
+  description: "Migrated from Sybase - Casino Operations & Locations",
+  bigquery: {,
+    clusterBy: ["TerminalLocationDetID"],
+  }
+}
+
+SELECT
+  TerminalLocationDetID STRING NOT NULL,
+  CASINOLOCDETID STRING NOT NULL,
+  TerminalLoc STRING,
+  CASINOLOC STRING NOT NULL,
+  PITNUM STRING,
+  GamingTableNum STRING NOT NULL,
+  TerminalNum STRING,
+  TBLAREA STRING,
+  CasinoLocDesc STRING,
+  GAMINGAREA STRING,
+  GamingAreaName STRING,
+  GamingAreaStrm STRING,
+  GamingAreaSeg STRING,
+  GamingAreaSubSeg STRING,
+  NumSGStns STRING,
+  SiteID STRING NOT NULL,
+  SctyCde STRING,
+  ETLJobDtlID STRING NOT NULL,
+  PagingZone STRING
+FROM `${ref('sybase_source')}`

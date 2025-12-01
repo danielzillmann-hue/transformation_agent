@@ -1,0 +1,56 @@
+-- Dataform table definition for sybaseadmin.D_CASINOLOCATIONDET
+-- Source: Sybase
+-- Domain: Casino Operations & Locations
+-- Dataset: crown_casino_operations
+
+config {
+  type: "table",
+  schema: "crown_casino_operations",
+  description: "Migrated from Sybase - Casino Operations & Locations",
+  bigquery: {,
+    clusterBy: ["CASINOLOCDETID"],
+  }
+}
+
+SELECT
+  CASINOLOCDETID STRING NOT NULL,
+  PTYLOCNUM INT64,
+  PTYLOCNAME STRING,
+  CASINOLOC STRING NOT NULL,
+  LOCTYPCODE STRING,
+  EGM_AREA STRING,
+  EGM_BANK STRING,
+  EGM_MACHINE STRING,
+  TBLAREA STRING,
+  PITNUM STRING,
+  GAMINGTABLENUM STRING,
+  GAMINGAREA STRING,
+  CasinoLocDesc STRING,
+  LocTypName STRING,
+  GamingAreaName STRING,
+  EGMAreaName STRING,
+  EGMZoneCde STRING,
+  EGMZoneDesc STRING,
+  EGMBankName STRING,
+  NumSGStns INT64,
+  GamingAreaSeg STRING,
+  GamingAreaStrm STRING,
+  GamingAreaSegName STRING,
+  MicrosRevCent STRING,
+  OperaRevCent STRING,
+  GamingAreaSubSeg STRING,
+  SiteID STRING NOT NULL,
+  SctyCde INT64,
+  ETLJobDtlID STRING NOT NULL,
+  BusOwnName STRING,
+  OutletTyp STRING,
+  OutletArea STRING,
+  OutletStyle STRING,
+  OutletLvl STRING,
+  TblNum STRING,
+  MicrosRevCentDesc STRING,
+  BusOwnSctyCde INT64,
+  BusOwnID STRING,
+  LegacyDeptNum STRING,
+  PagingZone STRING
+FROM `${ref('sybase_source')}`
