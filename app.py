@@ -416,6 +416,7 @@ async def run_summary(request: Request, run_id: str):
     categorization_report = _maybe(os.path.join(output_dir, "categorization_report.txt"))
     validation_tests = _maybe(os.path.join(output_dir, "validation_tests.json"))
     validation_report = _maybe(os.path.join(output_dir, "validation_report.txt"))
+    type_mapping_report = _maybe(os.path.join(output_dir, "type_mapping_report.txt"))
 
     dataform_dir = os.path.join(output_dir, "dataform")
     has_dataform = os.path.isdir(dataform_dir)
@@ -434,6 +435,7 @@ async def run_summary(request: Request, run_id: str):
         "categorization_report": _download_url(categorization_report),
         "validation_tests": _download_url(validation_tests),
         "validation_report": _download_url(validation_report),
+        "type_mapping_report": _download_url(type_mapping_report),
         "dataform_root": f"/runs/{run_id}/files/dataform" if has_dataform else None,
     }
 
@@ -457,6 +459,7 @@ async def run_summary(request: Request, run_id: str):
             _row("Categorisation report", "categorization_report"),
             _row("Validation tests (JSON)", "validation_tests"),
             _row("Validation report", "validation_report"),
+            _row("Type mapping report", "type_mapping_report"),
             _row("Dataform project root", "dataform_root"),
         ]
     )
