@@ -49,7 +49,7 @@ async def index():
     <head>
       <title>Sybase to BigQuery Agentic Migration</title>
       <style>
-        :root {
+        :root {{
           color-scheme: light dark;
           --bg: #0f172a;
           --bg-card: #020617;
@@ -58,8 +58,8 @@ async def index():
           --accent-soft: rgba(34, 197, 94, 0.16);
           --text: #e5e7eb;
           --muted: #9ca3af;
-        }
-        body {
+        }}
+        body {{
           margin: 0;
           min-height: 100vh;
           font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -68,24 +68,24 @@ async def index():
           display: flex;
           align-items: stretch;
           justify-content: center;
-        }
-        .shell {
+        }}
+        .shell {{
           max-width: 1100px;
           width: 100%;
           padding: 2.5rem 1.5rem 3rem;
-        }
-        .header {
+        }}
+        .header {{
           display: flex;
           flex-direction: column;
           gap: 0.5rem;
           margin-bottom: 2rem;
-        }
-        .title-row {
+        }}
+        .title-row {{
           display: flex;
           align-items: center;
           gap: 0.6rem;
-        }
-        .pill {
+        }}
+        .pill {{
           font-size: 0.7rem;
           text-transform: uppercase;
           letter-spacing: 0.08em;
@@ -93,73 +93,73 @@ async def index():
           border-radius: 999px;
           border: 1px solid var(--border-subtle);
           color: var(--muted);
-        }
-        h1 {
+        }}
+        h1 {{
           font-size: 1.6rem;
           font-weight: 600;
           margin: 0;
-        }
-        .subtitle {
+        }}
+        .subtitle {{
           font-size: 0.95rem;
           color: var(--muted);
           max-width: 640px;
-        }
-        .grid {
+        }}
+        .grid {{
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
           gap: 1.25rem;
-        }
-        .card {
+        }}
+        .card {{
           background: radial-gradient(circle at top left, rgba(34,197,94,0.05), #020617 55%);
           border-radius: 0.9rem;
           border: 1px solid rgba(148,163,184,0.35);
           padding: 1.4rem 1.4rem 1.5rem;
           box-shadow: 0 18px 45px rgba(15,23,42,0.85);
-        }
-        .card h2 {
+        }}
+        .card h2 {{
           font-size: 1.05rem;
           margin: 0 0 0.4rem;
-        }
-        .card p {
+        }}
+        .card p {{
           margin: 0 0 0.9rem;
           font-size: 0.9rem;
           color: var(--muted);
-        }
-        form {
+        }}
+        form {{
           display: flex;
           flex-direction: column;
           gap: 0.5rem;
           margin-top: 0.5rem;
-        }
-        label {
+        }}
+        label {{
           display: flex;
           flex-direction: column;
           gap: 0.25rem;
           font-size: 0.8rem;
           color: var(--muted);
-        }
-        input[type="text"], input[type="file"] {
+        }}
+        input[type="text"], input[type="file"] {{
           border-radius: 0.45rem;
           border: 1px solid rgba(148,163,184,0.55);
           padding: 0.45rem 0.6rem;
           background: rgba(15,23,42,0.85);
           color: var(--text);
           font-size: 0.85rem;
-        }
-        input[type="file"] {
+        }}
+        input[type="file"] {{
           padding: 0.35rem 0.6rem;
-        }
-        input[type="checkbox"] {
+        }}
+        input[type="checkbox"] {{
           accent-color: var(--accent);
-        }
-        .inline-option {
+        }}
+        .inline-option {{
           display: flex;
           align-items: center;
           gap: 0.45rem;
           font-size: 0.8rem;
           color: var(--muted);
-        }
-        button[type="submit"] {
+        }}
+        button[type="submit"] {{
           margin-top: 0.6rem;
           align-self: flex-start;
           border-radius: 999px;
@@ -171,20 +171,20 @@ async def index():
           color: #022c22;
           cursor: pointer;
           box-shadow: 0 12px 30px rgba(34,197,94,0.5);
-        }
-        button[type="submit"]:hover {
+        }}
+        button[type="submit"]:hover {{
           filter: brightness(1.05);
-        }
-        .footer-note {
+        }}
+        .footer-note {{
           margin-top: 1.6rem;
           font-size: 0.8rem;
           color: var(--muted);
-        }
-        code {
+        }}
+        code {{
           background: rgba(15,23,42,0.9);
           padding: 0.1rem 0.35rem;
           border-radius: 0.25rem;
-        }
+        }}
       </style>
     </head>
     <body>
