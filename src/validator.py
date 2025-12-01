@@ -77,17 +77,18 @@ class ValidationEngine:
         logger.info(f"Saved validation test definitions to {output_path}")
 
     def _generate_report(self, test_definitions):
-        """Generate a Markdown validation summary report."""
-        report_path = os.path.join(self.output_dir, "validation_report.md")
+        """Generate a text validation summary report."""
+        report_path = os.path.join(self.output_dir, "validation_report.txt")
 
         with open(report_path, "w") as f:
-            f.write("# Validation & Testing Report\n\n")
+            f.write("Validation & Testing Report\n\n")
 
             total_objects = len(test_definitions)
             total_tests = sum(len(obj.get("tests", {}).get("test_cases", [])) for obj in test_definitions.values())
 
-            f.write("## Summary\n\n")
-            f.write(f"- **Objects with tests**: {total_objects}\n")
+            f.write("Summary\n\n")
+            f.write(f"Objects with tests: {total_objects}\n")
+            f.write(f"Total test cases generated: {total_tests}\n\n")
             f.write(f"- **Total test cases generated**: {total_tests}\n\n")
 
             for filename, obj in test_definitions.items():

@@ -1,6 +1,7 @@
 import logging
 import os
 import uuid
+import shutil
 
 from src.ingestion import IngestionEngine
 from src.analyzer import AnalysisEngine
@@ -9,6 +10,7 @@ from src.visualizer import Visualizer
 from src.categorizer import DataCategorizer
 from src.translator import SchemaTranslator
 from src.validator import ValidationEngine
+from google.cloud import storage
 
 
 logger = logging.getLogger(__name__)
@@ -33,6 +35,7 @@ def run_pipeline(config: dict) -> dict:
     do_categorize = config.get("categorize", False)
     do_translate = config.get("translate", False)
     do_validate = config.get("validate", False)
+    archive_bucket = config.get("archive_bucket")
 
     run_id = config.get("run_id") or str(uuid.uuid4())
 
@@ -108,17 +111,55 @@ def run_pipeline(config: dict) -> dict:
 
     dataform_dir = os.path.join(output_dir, "dataform") if os.path.isdir(os.path.join(output_dir, "dataform")) else None
     validation_tests_path = os.path.join(output_dir, "validation_tests.json") if os.path.exists(os.path.join(output_dir, "validation_tests.json")) else None
-    validation_report_path = os.path.join(output_dir, "validation_report.md") if os.path.exists(os.path.join(output_dir, "validation_report.md")) else None
+    validation_report_path = os.path.join(output_dir, "validation_report.txt") if os.path.exists(os.path.join(output_dir, "validation_report.txt")) else None
 
-    return {
+    analysis_report_path = os.path.join(output_dir, "analysis_report.txt") if os.path.exists(os.path.join(output_dir, "analysis_report.txt")) else None
+    categorization_report_path = os.path.join(output_dir, "categorization_report.txt") if os.path.exists(os.path.join(output_dir, "categorization_report.txt")) else None
+
+    gcs_uris = {}
+    if archive_bucket:
+        try:
+            client = storage.Client(project=project_id)
+            bucket_obj = client.bucket(archive_bucket)
+            base_prefix = f"runs/{run_id}/"
+
+            def _upload(local_path, rel_name=None):
+                if not local_path or not os.path.exists(local_path):
+                    return None
+                rel = rel_name or os.path.basename(local_path)
+                blob_path = base_prefix + rel
+                blob = bucket_obj.blob(blob_path)
+                blob.upload_from_filename(local_path)
+                return f"gs://{archive_bucket}/{blob_path}"
+
+            gcs_uris["analysis_results_uri"] = _upload(analysis_json_path, "analysis_results.json")
+            gcs_uris["analysis_report_uri"] = _upload(analysis_report_path, "analysis_report.txt")
+            gcs_uris["categorization_uri"] = _upload(categorization_json_path, "data_categorization.json")
+            gcs_uris["categorization_report_uri"] = _upload(categorization_report_path, "categorization_report.txt")
+            gcs_uris["validation_tests_uri"] = _upload(validation_tests_path, "validation_tests.json")
+            gcs_uris["validation_report_uri"] = _upload(validation_report_path, "validation_report.txt")
+
+            if dataform_dir and os.path.isdir(dataform_dir):
+                archive_base = os.path.join(output_dir, "dataform")
+                zip_path = shutil.make_archive(archive_base, "zip", dataform_dir)
+                gcs_uris["dataform_zip_uri"] = _upload(zip_path, "dataform.zip")
+        except Exception as e:
+            logger.warning("Failed to archive artefacts to GCS: %s", e)
+
+    result = {
         "run_id": run_id,
         "output_dir": output_dir,
         "analysis_results_path": analysis_json_path if os.path.exists(analysis_json_path) else None,
-        "analysis_report_path": os.path.join(output_dir, "analysis_report.md"),
+        "analysis_report_path": analysis_report_path,
         "dependency_graph_path": os.path.join(output_dir, "dependency_graph.mmd"),
         "categorization_path": categorization_json_path if os.path.exists(categorization_json_path) else None,
-        "categorization_report_path": os.path.join(output_dir, "categorization_report.md") if os.path.exists(os.path.join(output_dir, "categorization_report.md")) else None,
+        "categorization_report_path": categorization_report_path,
         "dataform_dir": dataform_dir,
         "validation_tests_path": validation_tests_path,
         "validation_report_path": validation_report_path,
     }
+
+    if gcs_uris:
+        result["gcs_uris"] = gcs_uris
+
+    return result

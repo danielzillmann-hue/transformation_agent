@@ -183,15 +183,15 @@ Return ONLY a JSON object mapping each column name to its domain:
 
     def _generate_report(self, domains, categorizations):
         """Generate categorization report."""
-        report_path = os.path.join(self.output_dir, "categorization_report.md")
+        report_path = os.path.join(self.output_dir, "categorization_report.txt")
         
         with open(report_path, "w") as f:
-            f.write("# Data Categorization Report\n\n")
+            f.write("Data Categorization Report\n\n")
             
             # Domains section
-            f.write("## Identified Business Domains\n\n")
+            f.write("Identified Business Domains\n\n")
             for domain in domains:
-                f.write(f"### {domain['domain_name']}\n")
+                f.write(f"{domain['domain_name']}\n")
                 f.write(f"{domain['description']}\n\n")
             
             # Statistics

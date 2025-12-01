@@ -180,6 +180,9 @@ async def index():
               <label>GCP Project ID
                 <input type="text" name="project" value="dan-sandpit" />
               </label>
+              <label>Archive results to GCS bucket (optional)
+                <input type="text" name="archive_bucket" placeholder="e.g. crownpoc-results" />
+              </label>
               <div class="inline-option">
                 <input type="checkbox" name="skip_analysis" value="true" />
                 <span>Skip analysis (reuse existing <code>analysis_results.json</code> for this run)</span>
@@ -245,6 +248,7 @@ async def start_run_gcs(
     request: Request,
     bucket: str = Form(...),
     project: Optional[str] = Form(None),
+    archive_bucket: Optional[str] = Form(None),
     skip_analysis: bool = Form(False),
     categorize: bool = Form(False),
     translate: bool = Form(False),
@@ -254,6 +258,7 @@ async def start_run_gcs(
         "source_type": "gcs",
         "bucket": bucket,
         "project": project,
+        "archive_bucket": archive_bucket,
         "skip_analysis": skip_analysis,
         "categorize": categorize,
         "translate": translate,
@@ -296,6 +301,7 @@ async def start_run_local(
     request: Request,
     files: List[UploadFile] = File(...),
     project: Optional[str] = Form(None),
+    archive_bucket: Optional[str] = Form(None),
     skip_analysis: bool = Form(False),
     categorize: bool = Form(False),
     translate: bool = Form(False),
@@ -316,6 +322,7 @@ async def start_run_local(
         "source_type": "local",
         "local_files": local_paths,
         "project": project,
+        "archive_bucket": archive_bucket,
         "skip_analysis": skip_analysis,
         "categorize": categorize,
         "translate": translate,
@@ -367,12 +374,12 @@ async def run_summary(request: Request, run_id: str):
         return path if os.path.exists(path) else None
 
     analysis_json = _maybe(os.path.join(output_dir, "analysis_results.json"))
-    analysis_report = _maybe(os.path.join(output_dir, "analysis_report.md"))
+    analysis_report = _maybe(os.path.join(output_dir, "analysis_report.txt"))
     dependency_graph = _maybe(os.path.join(output_dir, "dependency_graph.mmd"))
     categorization_json = _maybe(os.path.join(output_dir, "data_categorization.json"))
-    categorization_report = _maybe(os.path.join(output_dir, "categorization_report.md"))
+    categorization_report = _maybe(os.path.join(output_dir, "categorization_report.txt"))
     validation_tests = _maybe(os.path.join(output_dir, "validation_tests.json"))
-    validation_report = _maybe(os.path.join(output_dir, "validation_report.md"))
+    validation_report = _maybe(os.path.join(output_dir, "validation_report.txt"))
 
     dataform_dir = os.path.join(output_dir, "dataform")
     has_dataform = os.path.isdir(dataform_dir)
