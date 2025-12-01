@@ -17,3 +17,6 @@ steps:
 
 images:
   - gcr.io/dan-sandpit/transformation-agent
+
+options:
+  logging: CLOUD_LOGGING_ONLY
