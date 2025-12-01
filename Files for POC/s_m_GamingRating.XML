@@ -1,0 +1,462 @@
+<?xml version="1.0" encoding="Windows-1252"?>
+<!DOCTYPE POWERMART SYSTEM "powrmart.dtd">
+<POWERMART CREATION_DATE="07/16/2025 15:13:48" REPOSITORY_VERSION="185.94">
+<REPOSITORY NAME="PCRS_PROD" VERSION="185" CODEPAGE="MS1252" DATABASETYPE="Microsoft SQL Server">
+<FOLDER NAME="CDW_Common" GROUP="" OWNER="Administrator" SHARED="SHARED" DESCRIPTION="" PERMISSIONS="rwx------" UUID="4189e113-c5fd-4afb-b02e-ba9e16fea30c">
+    <CONFIG DESCRIPTION ="Default session configuration object" ISDEFAULT ="YES" NAME ="default_session_config" VERSIONNUMBER ="23">
+        <ATTRIBUTE NAME ="Advanced" VALUE =""/>
+        <ATTRIBUTE NAME ="Constraint based load ordering" VALUE ="NO"/>
+        <ATTRIBUTE NAME ="Cache LOOKUP() function" VALUE ="YES"/>
+        <ATTRIBUTE NAME ="Default buffer block size" VALUE ="Auto"/>
+        <ATTRIBUTE NAME ="Line Sequential buffer length" VALUE ="1024"/>
+        <ATTRIBUTE NAME ="Maximum Memory Allowed For Auto Memory Attributes" VALUE ="512MB"/>
+        <ATTRIBUTE NAME ="Maximum Percentage of Total Memory Allowed For Auto Memory Attributes" VALUE ="5"/>
+        <ATTRIBUTE NAME ="Additional Concurrent Pipelines for Lookup Cache Creation" VALUE ="auto"/>
+        <ATTRIBUTE NAME ="Custom Properties" VALUE =""/>
+        <ATTRIBUTE NAME ="Pre-build lookup cache" VALUE ="Auto"/>
+        <ATTRIBUTE NAME ="Optimization Level" VALUE ="Medium"/>
+        <ATTRIBUTE NAME ="DateTime Format String" VALUE ="MM/DD/YYYY HH24:MI:SS"/>
+        <ATTRIBUTE NAME ="Pre 85 Timestamp Compatibility" VALUE ="YES"/>
+        <ATTRIBUTE NAME ="Log Options" VALUE ="0"/>
+        <ATTRIBUTE NAME ="Save session log by" VALUE ="Session timestamp"/>
+        <ATTRIBUTE NAME ="Session Log File Max Size" VALUE ="0"/>
+        <ATTRIBUTE NAME ="Session Log File Max Time Period" VALUE ="0"/>
+        <ATTRIBUTE NAME ="Maximum Partial Session Log Files" VALUE ="1"/>
+        <ATTRIBUTE NAME ="Writer Commit Statistics Log Frequency" VALUE ="1"/>
+        <ATTRIBUTE NAME ="Writer Commit Statistics Log Interval" VALUE ="0"/>
+        <ATTRIBUTE NAME ="Error handling" VALUE =""/>
+        <ATTRIBUTE NAME ="Stop on errors" VALUE ="$PMSessionErrorThreshold"/>
+        <ATTRIBUTE NAME ="Override tracing" VALUE ="None"/>
+        <ATTRIBUTE NAME ="On Stored Procedure error" VALUE ="Stop"/>
+        <ATTRIBUTE NAME ="On Pre-session command task error" VALUE ="Stop"/>
+        <ATTRIBUTE NAME ="On Pre-Post SQL error" VALUE ="Stop"/>
+        <ATTRIBUTE NAME ="Enable Recovery" VALUE ="NO"/>
+        <ATTRIBUTE NAME ="Error Log Type" VALUE ="None"/>
+        <ATTRIBUTE NAME ="Error Log Table Name Prefix" VALUE =""/>
+        <ATTRIBUTE NAME ="Error Log File Name" VALUE ="PMError.log"/>
+        <ATTRIBUTE NAME ="Log Source Row Data" VALUE ="NO"/>
+        <ATTRIBUTE NAME ="Data Column Delimiter" VALUE ="|"/>
+        <ATTRIBUTE NAME ="Partitioning Options" VALUE =""/>
+        <ATTRIBUTE NAME ="Dynamic Partitioning" VALUE ="Disabled"/>
+        <ATTRIBUTE NAME ="Number of Partitions" VALUE ="1"/>
+        <ATTRIBUTE NAME ="Multiplication Factor" VALUE ="Auto"/>
+        <ATTRIBUTE NAME ="Session on Grid" VALUE =""/>
+        <ATTRIBUTE NAME ="Is Enabled" VALUE ="NO"/>
+    </CONFIG>
+    <TASK DESCRIPTION ="" NAME ="cmd_Target_Parse" REUSABLE ="YES" TYPE ="Command" VERSIONNUMBER ="2">
+        <ATTRIBUTE NAME ="Fail task if any command fails" VALUE ="NO"/>
+        <ATTRIBUTE NAME ="Recovery Strategy" VALUE ="Fail task and continue workflow"/>
+        <VALUEPAIR EXECORDER ="1" NAME ="Command1" REVERSEASSIGNMENT ="NO" VALUE ="$$PosScriptConfigLocation&#x5c;Target_Parse.pl $PMTargetFileDir $PMSessionName $$ScriptLogLocation"/>
+    </TASK>
+    <TASK DESCRIPTION ="" NAME ="cmd_PageOnError" REUSABLE ="YES" TYPE ="Command" VERSIONNUMBER ="22">
+        <ATTRIBUTE NAME ="Fail task if any command fails" VALUE ="YES"/>
+        <ATTRIBUTE NAME ="Recovery Strategy" VALUE ="Restart task"/>
+        <VALUEPAIR EXECORDER ="1" NAME ="Page On Error" REVERSEASSIGNMENT ="NO" VALUE ="D:&#x5c;CDW&#x5c;Scripts&#x5c;Common&#x5c;page.pl &quot;Session $PMSessionName has failed.&quot; D:&#x5c;CDW&#x5c;Logs"/>
+    </TASK>
+    <SESSION DESCRIPTION ="" ISVALID ="YES" MAPPINGNAME ="m_GamingRating" NAME ="s_m_GamingRating" REUSABLE ="YES" SORTORDER ="Binary" VERSIONNUMBER ="28">
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="YES" PARTITIONTYPE ="PASS THROUGH" PIPELINE ="1" SINSTANCENAME ="Shortcut_To_F_GAMINGRATING" STAGE ="3" TRANSFORMATIONNAME ="Shortcut_To_F_GAMINGRATING" TRANSFORMATIONTYPE ="Target Definition">
+            <FLATFILE CODEPAGE ="MS1252" CONSECDELIMITERSASONE ="NO" DELIMITED ="YES" DELIMITERS ="|" ESCAPE_CHARACTER ="" KEEPESCAPECHAR ="NO" LINESEQUENTIAL ="NO" MULTIDELIMITERSASAND ="NO" NULLCHARTYPE ="ASCII" NULL_CHARACTER ="*" PADBYTES ="1" QUOTE_CHARACTER ="NONE" REPEATABLE ="NO" ROWDELIMITER ="10" SKIPROWS ="0" STRIPTRAILINGBLANKS ="NO"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="YES" PARTITIONTYPE ="PASS THROUGH" PIPELINE ="1" SINSTANCENAME ="Shortcut_To_REJ_F_GAMINGRATING" STAGE ="4" TRANSFORMATIONNAME ="Shortcut_To_REJ_F_GAMINGRATING" TRANSFORMATIONTYPE ="Target Definition">
+            <FLATFILE CODEPAGE ="MS1252" CONSECDELIMITERSASONE ="NO" DELIMITED ="YES" DELIMITERS ="|" ESCAPE_CHARACTER ="" KEEPESCAPECHAR ="NO" LINESEQUENTIAL ="NO" MULTIDELIMITERSASAND ="NO" NULLCHARTYPE ="ASCII" NULL_CHARACTER ="*" PADBYTES ="1" QUOTE_CHARACTER ="NONE" REPEATABLE ="NO" ROWDELIMITER ="10" SKIPROWS ="0" STRIPTRAILINGBLANKS ="NO"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="YES" PARTITIONTYPE ="PASS THROUGH" PIPELINE ="1" SINSTANCENAME ="Shortcut_To_ALT_F_GAMINGRATING" STAGE ="1" TRANSFORMATIONNAME ="Shortcut_To_ALT_F_GAMINGRATING" TRANSFORMATIONTYPE ="Target Definition">
+            <FLATFILE CODEPAGE ="MS1252" CONSECDELIMITERSASONE ="NO" DELIMITED ="YES" DELIMITERS ="|" ESCAPE_CHARACTER ="" KEEPESCAPECHAR ="NO" LINESEQUENTIAL ="NO" MULTIDELIMITERSASAND ="NO" NULLCHARTYPE ="ASCII" NULL_CHARACTER ="*" PADBYTES ="1" QUOTE_CHARACTER ="NONE" REPEATABLE ="NO" ROWDELIMITER ="10" SKIPROWS ="0" STRIPTRAILINGBLANKS ="NO"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="YES" PARTITIONTYPE ="PASS THROUGH" PIPELINE ="1" SINSTANCENAME ="Shortcut_To_W_Tbl_Rebuild_Keys" STAGE ="2" TRANSFORMATIONNAME ="Shortcut_To_W_Tbl_Rebuild_Keys" TRANSFORMATIONTYPE ="Target Definition">
+            <FLATFILE CODEPAGE ="MS1252" CONSECDELIMITERSASONE ="NO" DELIMITED ="YES" DELIMITERS ="|" ESCAPE_CHARACTER ="" KEEPESCAPECHAR ="NO" LINESEQUENTIAL ="NO" MULTIDELIMITERSASAND ="NO" NULLCHARTYPE ="ASCII" NULL_CHARACTER ="*" PADBYTES ="1" QUOTE_CHARACTER ="NONE" REPEATABLE ="NO" ROWDELIMITER ="10" SKIPROWS ="0" STRIPTRAILINGBLANKS ="NO"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_To_S_GamingRating" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_To_S_GamingRating" TRANSFORMATIONTYPE ="Source Definition"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_To_Lkp_AgeID" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_To_Lkp_AgeID" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_To_Lkp_GamingDate" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_To_Lkp_GamingDate" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_To_Lkp_Hour" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_To_Lkp_Hour" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_To_Lkp_ValidationCode" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_To_Lkp_ValidationCode" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_To_Lkp_CasinoLocationDetail" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_To_Lkp_CasinoLocationDetail" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_To_Lkp_Day" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_To_Lkp_Day" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Exp_Validate" STAGE ="6" TRANSFORMATIONNAME ="Exp_Validate" TRANSFORMATIONTYPE ="Expression">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+            <ATTRIBUTE NAME ="Tracing Level" VALUE ="Normal"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Rtr_RejectAlert" STAGE ="6" TRANSFORMATIONNAME ="Rtr_RejectAlert" TRANSFORMATIONTYPE ="Router">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Lkp_D_HOUR_PubHldyName" STAGE ="0" TRANSFORMATIONNAME ="Lkp_D_HOUR_PubHldyName" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Upd_W_EGM_Received_Keys_Insert" STAGE ="6" TRANSFORMATIONNAME ="Upd_W_EGM_Received_Keys_Insert" TRANSFORMATIONTYPE ="Update Strategy">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Exp_SetRowType" STAGE ="6" TRANSFORMATIONNAME ="Exp_SetRowType" TRANSFORMATIONTYPE ="Expression">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="YES" PARTITIONTYPE ="PASS THROUGH" PIPELINE ="1" SINSTANCENAME ="SQ_S_GamingRating" STAGE ="6" TRANSFORMATIONNAME ="SQ_S_GamingRating" TRANSFORMATIONTYPE ="Source Qualifier"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Exp_TransformTargets" STAGE ="6" TRANSFORMATIONNAME ="Exp_TransformTargets" TRANSFORMATIONTYPE ="Expression">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+            <ATTRIBUTE NAME ="Tracing Level" VALUE ="Normal"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Upd_F_GamingRating_Insert" STAGE ="6" TRANSFORMATIONNAME ="Upd_F_GamingRating_Insert" TRANSFORMATIONTYPE ="Update Strategy">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Srt_DistinctRebuildKeys" STAGE ="6" TRANSFORMATIONNAME ="Srt_DistinctRebuildKeys" TRANSFORMATIONTYPE ="Sorter">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Shortcut_To_Lkp_Site" STAGE ="6" TRANSFORMATIONNAME ="Shortcut_To_Lkp_Site" TRANSFORMATIONTYPE ="Lookup Procedure">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Shortcut_to_Lkp_Program" STAGE ="6" TRANSFORMATIONNAME ="Shortcut_to_Lkp_Program" TRANSFORMATIONTYPE ="Lookup Procedure">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_To_Lkp_SctyCde" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_To_Lkp_SctyCde" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_To_Lkp_Product_Buskey" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_To_Lkp_Product_Buskey" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_To_Lkp_CasinoLocation_Buskey" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_To_Lkp_CasinoLocation_Buskey" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_To_Lkp_ProductDet_Buskey" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_To_Lkp_ProductDet_Buskey" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_To_Lkp_D_Status_Code" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_To_Lkp_D_Status_Code" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="YES" PARTITIONTYPE ="PASS THROUGH" PIPELINE ="1" SINSTANCENAME ="Shortcut_to_W_EGM_Received_Keys" STAGE ="5" TRANSFORMATIONNAME ="Shortcut_to_W_EGM_Received_Keys" TRANSFORMATIONTYPE ="Target Definition">
+            <FLATFILE CODEPAGE ="MS1252" CONSECDELIMITERSASONE ="NO" DELIMITED ="YES" DELIMITERS ="|" ESCAPE_CHARACTER ="" KEEPESCAPECHAR ="NO" LINESEQUENTIAL ="NO" MULTIDELIMITERSASAND ="NO" NULLCHARTYPE ="ASCII" NULL_CHARACTER ="*" PADBYTES ="1" QUOTE_CHARACTER ="NONE" REPEATABLE ="NO" ROWDELIMITER ="10" SKIPROWS ="0" STRIPTRAILINGBLANKS ="NO"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Shortcut_to_Lkp_GamingMachine_Configuration_Product" STAGE ="6" TRANSFORMATIONNAME ="Shortcut_to_Lkp_GamingMachine_Configuration_Product" TRANSFORMATIONTYPE ="Lookup Procedure">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_To_Lkp_GamingMachine_Buskey" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_To_Lkp_GamingMachine_Buskey" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="YES" PARTITIONTYPE ="PASS THROUGH" PIPELINE ="1" SINSTANCENAME ="Shortcut_To_W_Patron_Aggregate_Keys_Extract" STAGE ="7" TRANSFORMATIONNAME ="Shortcut_To_W_Patron_Aggregate_Keys_Extract" TRANSFORMATIONTYPE ="Target Definition">
+            <FLATFILE CODEPAGE ="MS1252" CONSECDELIMITERSASONE ="NO" DELIMITED ="YES" DELIMITERS ="|" ESCAPE_CHARACTER ="" KEEPESCAPECHAR ="NO" LINESEQUENTIAL ="NO" MULTIDELIMITERSASAND ="NO" NULLCHARTYPE ="ASCII" NULL_CHARACTER ="*" PADBYTES ="1" QUOTE_CHARACTER ="NONE" REPEATABLE ="NO" ROWDELIMITER ="10" SKIPROWS ="0" STRIPTRAILINGBLANKS ="NO"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Exp_set_AggregateSrcTblCde" STAGE ="8" TRANSFORMATIONNAME ="Exp_set_AggregateSrcTblCde" TRANSFORMATIONTYPE ="Expression">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="YES" PARTITIONTYPE ="HASH AUTO KEYS" PIPELINE ="1" SINSTANCENAME ="Agg_Distinct" STAGE ="8" TRANSFORMATIONNAME ="Agg_Distinct" TRANSFORMATIONTYPE ="Aggregator">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Flt_changed_ratings" STAGE ="6" TRANSFORMATIONNAME ="Flt_changed_ratings" TRANSFORMATIONTYPE ="Filter">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Shortcut_To_Lkp_Department_DeptGrp" STAGE ="6" TRANSFORMATIONNAME ="Shortcut_To_Lkp_Department_DeptGrp" TRANSFORMATIONTYPE ="Lookup Procedure">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Shortcut_To_Lkp_Patron_PastDate" STAGE ="6" TRANSFORMATIONNAME ="Shortcut_To_Lkp_Patron_PastDate" TRANSFORMATIONTYPE ="Lookup Procedure">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+            <ATTRIBUTE NAME ="Cache File Name Prefix" VALUE ="Patron_ID_PastDate_DOB"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_To_Lkp_Patron_PastDate_ANC" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_To_Lkp_Patron_PastDate_ANC" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Exp_PreLkupTransform" STAGE ="6" TRANSFORMATIONNAME ="Exp_PreLkupTransform" TRANSFORMATIONTYPE ="Expression">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+            <ATTRIBUTE NAME ="Tracing Level" VALUE ="Normal"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_To_F_GAMINGRATING" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_To_F_GAMINGRATING" TRANSFORMATIONTYPE ="Source Definition"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Exp_Source_Transform" STAGE ="6" TRANSFORMATIONNAME ="Exp_Source_Transform" TRANSFORMATIONTYPE ="Expression">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Lkp_CasinoLocationDet_GamingArea" STAGE ="6" TRANSFORMATIONNAME ="Lkp_CasinoLocationDet_GamingArea" TRANSFORMATIONTYPE ="Lookup Procedure">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+            <ATTRIBUTE NAME ="Connection Information" VALUE ="$Source"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_To_Lkp_CasinoLocationDetail_TG" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_To_Lkp_CasinoLocationDetail_TG" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_to_Lkp_JobDetID" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_to_Lkp_JobDetID" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_To_Lkp_Patron_Currrow" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_To_Lkp_Patron_Currrow" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_to_Lkp_Jackpot_Product_Type" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_to_Lkp_Jackpot_Product_Type" TRANSFORMATIONTYPE ="Lookup Procedure">
+            <ATTRIBUTE NAME ="Connection Information" VALUE ="$Source"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Lkp_JackPort_Product_Type_Order" STAGE ="0" TRANSFORMATIONNAME ="Lkp_JackPort_Product_Type_Order" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_to_Lkp_D_TRANSTYPE" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_to_Lkp_D_TRANSTYPE" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_to_Lkp_D_GamingLicense" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_to_Lkp_D_GamingLicense" TRANSFORMATIONTYPE ="Lookup Procedure">
+            <ATTRIBUTE NAME ="Connection Information" VALUE ="$Source"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_to_Lkp_GamingMachine_License_Configuration_By_GamingMachineId" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_to_Lkp_GamingMachine_License_Configuration_By_GamingMachineId" TRANSFORMATIONTYPE ="Lookup Procedure">
+            <ATTRIBUTE NAME ="Connection Information" VALUE ="$Source"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Shortcut_to_Lkp_Patron_DOB" STAGE ="6" TRANSFORMATIONNAME ="Shortcut_to_Lkp_Patron_DOB" TRANSFORMATIONTYPE ="Lookup Procedure">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Shortcut_to_Lkp_Patron_DOB_ANC" STAGE ="6" TRANSFORMATIONNAME ="Shortcut_to_Lkp_Patron_DOB_ANC" TRANSFORMATIONTYPE ="Lookup Procedure">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="YES" PARTITIONTYPE ="PASS THROUGH" PIPELINE ="1" SINSTANCENAME ="Shortcut_to_R_GamingRating1" STAGE ="10" TRANSFORMATIONNAME ="Shortcut_to_R_GamingRating1" TRANSFORMATIONTYPE ="Target Definition">
+            <FLATFILE CODEPAGE ="MS1252" CONSECDELIMITERSASONE ="NO" DELIMITED ="YES" DELIMITERS ="|" ESCAPE_CHARACTER ="" KEEPESCAPECHAR ="NO" LINESEQUENTIAL ="NO" MULTIDELIMITERSASAND ="NO" NULLCHARTYPE ="ASCII" NULL_CHARACTER ="*" PADBYTES ="1" QUOTE_CHARACTER ="NONE" REPEATABLE ="NO" ROWDELIMITER ="10" SKIPROWS ="0" STRIPTRAILINGBLANKS ="NO"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Shortcut_to_Lkp_F_FATG_Configuration_TerminalLocDetID" STAGE ="6" TRANSFORMATIONNAME ="Shortcut_to_Lkp_F_FATG_Configuration_TerminalLocDetID" TRANSFORMATIONTYPE ="Lookup Procedure">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+            <ATTRIBUTE NAME ="Connection Information" VALUE ="$Source"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_to_LKP_Terminal_Location_BusKey" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_to_LKP_Terminal_Location_BusKey" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_to_Lkp_Product_ETG" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_to_Lkp_Product_ETG" TRANSFORMATIONTYPE ="Lookup Procedure">
+            <ATTRIBUTE NAME ="Connection Information" VALUE ="$Source"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_to_Lkp_D_ProductDet_GameCode" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_to_Lkp_D_ProductDet_GameCode" TRANSFORMATIONTYPE ="Lookup Procedure">
+            <ATTRIBUTE NAME ="Connection Information" VALUE ="$Source"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_to_Lkp_F_TableBetConfiguration_RatingTime" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_to_Lkp_F_TableBetConfiguration_RatingTime" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <CONFIGREFERENCE REFOBJECTNAME ="default_session_config" TYPE ="Session config"/>
+        <SESSIONCOMPONENT REFOBJECTNAME ="cmd_Target_Parse" REUSABLE ="YES" TYPE ="Post-session success command"/>
+        <SESSIONCOMPONENT REFOBJECTNAME ="cmd_PageOnError" REUSABLE ="YES" TYPE ="Post-session failure command"/>
+        <SESSIONEXTENSION NAME ="File Writer" SINSTANCENAME ="Shortcut_To_F_GAMINGRATING" SUBTYPE ="File Writer" TRANSFORMATIONTYPE ="Target Definition" TYPE ="WRITER">
+            <CONNECTIONREFERENCE CNXREFNAME ="Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="" VARIABLE =""/>
+            <ATTRIBUTE NAME ="Merge Type" VALUE ="No Merge"/>
+            <ATTRIBUTE NAME ="Merge File Directory" VALUE ="$PMTargetFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Merge File Name" VALUE ="shortcut_to_f_gamingrating.out"/>
+            <ATTRIBUTE NAME ="Append if Exists" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Create Target Directory" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Header Options" VALUE ="No Header"/>
+            <ATTRIBUTE NAME ="Header Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Footer Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Output Type" VALUE ="File"/>
+            <ATTRIBUTE NAME ="Merge Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Output file directory" VALUE ="$PMTargetFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Output filename" VALUE ="gamingrating_insert.txt"/>
+            <ATTRIBUTE NAME ="Reject file directory" VALUE ="$PMBadFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Reject filename" VALUE ="gamingrating_insert.bad"/>
+            <ATTRIBUTE NAME ="Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Codepage Parameter" VALUE =""/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="File Writer" SINSTANCENAME ="Shortcut_To_REJ_F_GAMINGRATING" SUBTYPE ="File Writer" TRANSFORMATIONTYPE ="Target Definition" TYPE ="WRITER">
+            <CONNECTIONREFERENCE CNXREFNAME ="Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="" VARIABLE =""/>
+            <ATTRIBUTE NAME ="Merge Type" VALUE ="No Merge"/>
+            <ATTRIBUTE NAME ="Merge File Directory" VALUE ="$PMTargetFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Merge File Name" VALUE ="shortcut_to_rej_f_gamingrating.out"/>
+            <ATTRIBUTE NAME ="Append if Exists" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Create Target Directory" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Header Options" VALUE ="Output Field Names"/>
+            <ATTRIBUTE NAME ="Header Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Footer Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Output Type" VALUE ="File"/>
+            <ATTRIBUTE NAME ="Merge Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Output file directory" VALUE ="$PMTargetFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Output filename" VALUE ="gamingrating_reject.txt"/>
+            <ATTRIBUTE NAME ="Reject file directory" VALUE ="$PMBadFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Reject filename" VALUE ="gamingrating_reject.bad"/>
+            <ATTRIBUTE NAME ="Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Codepage Parameter" VALUE =""/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="File Writer" SINSTANCENAME ="Shortcut_To_ALT_F_GAMINGRATING" SUBTYPE ="File Writer" TRANSFORMATIONTYPE ="Target Definition" TYPE ="WRITER">
+            <CONNECTIONREFERENCE CNXREFNAME ="Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="" VARIABLE =""/>
+            <ATTRIBUTE NAME ="Merge Type" VALUE ="No Merge"/>
+            <ATTRIBUTE NAME ="Merge File Directory" VALUE ="$PMTargetFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Merge File Name" VALUE ="shortcut_to_alt_f_gamingrating.out"/>
+            <ATTRIBUTE NAME ="Append if Exists" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Create Target Directory" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Header Options" VALUE ="No Header"/>
+            <ATTRIBUTE NAME ="Header Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Footer Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Output Type" VALUE ="File"/>
+            <ATTRIBUTE NAME ="Merge Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Output file directory" VALUE ="$PMTargetFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Output filename" VALUE ="gamingrating_alert.txt"/>
+            <ATTRIBUTE NAME ="Reject file directory" VALUE ="$PMBadFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Reject filename" VALUE ="gamingrating_alert.bad"/>
+            <ATTRIBUTE NAME ="Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Codepage Parameter" VALUE =""/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="File Writer" SINSTANCENAME ="Shortcut_To_W_Tbl_Rebuild_Keys" SUBTYPE ="File Writer" TRANSFORMATIONTYPE ="Target Definition" TYPE ="WRITER">
+            <CONNECTIONREFERENCE CNXREFNAME ="Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="" VARIABLE =""/>
+            <ATTRIBUTE NAME ="Merge Type" VALUE ="No Merge"/>
+            <ATTRIBUTE NAME ="Merge File Directory" VALUE ="$PMTargetFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Merge File Name" VALUE ="shortcut_to_w_tbl_rebuild_keys.out"/>
+            <ATTRIBUTE NAME ="Append if Exists" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Create Target Directory" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Header Options" VALUE ="No Header"/>
+            <ATTRIBUTE NAME ="Header Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Footer Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Output Type" VALUE ="File"/>
+            <ATTRIBUTE NAME ="Merge Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Output file directory" VALUE ="$PMTargetFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Output filename" VALUE ="w_rebuild_keys_ratings.txt"/>
+            <ATTRIBUTE NAME ="Reject file directory" VALUE ="$PMBadFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Reject filename" VALUE ="w_rebuild_keys_ratings.bad"/>
+            <ATTRIBUTE NAME ="Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Codepage Parameter" VALUE =""/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION DSQINSTNAME ="SQ_S_GamingRating" DSQINSTTYPE ="Source Qualifier" NAME ="Relational Reader" SINSTANCENAME ="Shortcut_To_S_GamingRating" SUBTYPE ="Relational Reader" TRANSFORMATIONTYPE ="Source Definition" TYPE ="READER"/>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_AgeID" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_GamingDate" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_Hour" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_ValidationCode" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_CasinoLocationDetail" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Target"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_Day" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Lkp_D_HOUR_PubHldyName" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Reader" SINSTANCENAME ="SQ_S_GamingRating" SUBTYPE ="Relational Reader" TRANSFORMATIONTYPE ="Source Qualifier" TYPE ="READER">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="CDW_Database" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="ODBC" CONNECTIONTYPE ="Relational" VARIABLE =""/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_Site" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Target"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_to_Lkp_Program" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Target"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_SctyCde" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Target"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_Product_Buskey" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Target"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_CasinoLocation_Buskey" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Target"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_ProductDet_Buskey" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Target"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_D_Status_Code" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="File Writer" SINSTANCENAME ="Shortcut_to_W_EGM_Received_Keys" SUBTYPE ="File Writer" TRANSFORMATIONTYPE ="Target Definition" TYPE ="WRITER">
+            <CONNECTIONREFERENCE CNXREFNAME ="Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="" VARIABLE =""/>
+            <ATTRIBUTE NAME ="Merge Type" VALUE ="No Merge"/>
+            <ATTRIBUTE NAME ="Merge File Directory" VALUE ="$PMTargetFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Merge File Name" VALUE ="shortcut_to_w_egm_received_keys.out"/>
+            <ATTRIBUTE NAME ="Append if Exists" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Create Target Directory" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Header Options" VALUE ="No Header"/>
+            <ATTRIBUTE NAME ="Header Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Footer Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Output Type" VALUE ="File"/>
+            <ATTRIBUTE NAME ="Merge Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Output file directory" VALUE ="$PMTargetFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Output filename" VALUE ="egm_received_keys_rating_insert.txt"/>
+            <ATTRIBUTE NAME ="Reject file directory" VALUE ="$PMBadFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Reject filename" VALUE ="egm_received_keys_rating_insert.bad"/>
+            <ATTRIBUTE NAME ="Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Codepage Parameter" VALUE =""/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_to_Lkp_GamingMachine_Configuration_Product" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Target"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_GamingMachine_Buskey" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Target"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="File Writer" SINSTANCENAME ="Shortcut_To_W_Patron_Aggregate_Keys_Extract" SUBTYPE ="File Writer" TRANSFORMATIONTYPE ="Target Definition" TYPE ="WRITER">
+            <CONNECTIONREFERENCE CNXREFNAME ="Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="" VARIABLE =""/>
+            <ATTRIBUTE NAME ="Merge Type" VALUE ="No Merge"/>
+            <ATTRIBUTE NAME ="Merge File Directory" VALUE ="$PMTargetFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Merge File Name" VALUE ="shortcut_to_w_patron_aggregate_keys_extract.out"/>
+            <ATTRIBUTE NAME ="Append if Exists" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Create Target Directory" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Header Options" VALUE ="No Header"/>
+            <ATTRIBUTE NAME ="Header Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Footer Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Output Type" VALUE ="File"/>
+            <ATTRIBUTE NAME ="Merge Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Output file directory" VALUE ="$PMTargetFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Output filename" VALUE ="patron_aggregate_keys_extract_changed_rating.txt"/>
+            <ATTRIBUTE NAME ="Reject file directory" VALUE ="$PMBadFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Reject filename" VALUE ="shortcut_to_w_patron_aggregate_keys_extract1.bad"/>
+            <ATTRIBUTE NAME ="Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Codepage Parameter" VALUE =""/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_Department_DeptGrp" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Target"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_Patron_PastDate" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_Patron_PastDate_ANC" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION DSQINSTNAME ="SQ_S_GamingRating" DSQINSTTYPE ="Source Qualifier" NAME ="Relational Reader" SINSTANCENAME ="Shortcut_To_F_GAMINGRATING" SUBTYPE ="Relational Reader" TRANSFORMATIONTYPE ="Source Definition" TYPE ="READER"/>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Lkp_CasinoLocationDet_GamingArea" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_CasinoLocationDetail_TG" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_to_Lkp_JobDetID" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Target"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_Patron_Currrow" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_to_Lkp_Jackpot_Product_Type" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Lkp_JackPort_Product_Type_Order" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_to_Lkp_D_TRANSTYPE" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="CDW_Database" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="ODBC" CONNECTIONTYPE ="Relational" VARIABLE =""/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_to_Lkp_D_GamingLicense" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_to_Lkp_GamingMachine_License_Configuration_By_GamingMachineId" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_to_Lkp_Patron_DOB" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_to_Lkp_Patron_DOB_ANC" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="File Writer" SINSTANCENAME ="Shortcut_to_R_GamingRating1" SUBTYPE ="File Writer" TRANSFORMATIONTYPE ="Target Definition" TYPE ="WRITER">
+            <CONNECTIONREFERENCE CNXREFNAME ="Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="" VARIABLE =""/>
+            <ATTRIBUTE NAME ="Merge Type" VALUE ="No Merge"/>
+            <ATTRIBUTE NAME ="Merge File Directory" VALUE ="$PMTargetFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Merge File Name" VALUE ="shortcut_to_r_gamingrating1.out"/>
+            <ATTRIBUTE NAME ="Append if Exists" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Create Target Directory" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Header Options" VALUE ="No Header"/>
+            <ATTRIBUTE NAME ="Header Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Footer Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Output Type" VALUE ="File"/>
+            <ATTRIBUTE NAME ="Merge Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Output file directory" VALUE ="$PMTargetFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Output filename" VALUE ="w_rej_gamingrating.txt"/>
+            <ATTRIBUTE NAME ="Reject file directory" VALUE ="$PMBadFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Reject filename" VALUE ="shortcut_to_r_gamingrating11.bad"/>
+            <ATTRIBUTE NAME ="Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Codepage Parameter" VALUE =""/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_to_Lkp_F_FATG_Configuration_TerminalLocDetID" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_to_LKP_Terminal_Location_BusKey" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Target"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_to_Lkp_Product_ETG" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_to_Lkp_D_ProductDet_GameCode" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_to_Lkp_F_TableBetConfiguration_RatingTime" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="CDW_Database" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="ODBC" CONNECTIONTYPE ="Relational" VARIABLE =""/>
+        </SESSIONEXTENSION>
+        <ATTRIBUTE NAME ="General Options" VALUE =""/>
+        <ATTRIBUTE NAME ="Write Backward Compatible Session Log File" VALUE ="YES"/>
+        <ATTRIBUTE NAME ="Session Log File Name" VALUE ="s_m_GamingRating.log"/>
+        <ATTRIBUTE NAME ="Session Log File directory" VALUE ="$PMSessionLogDir&#x5c;"/>
+        <ATTRIBUTE NAME ="Parameter Filename" VALUE =""/>
+        <ATTRIBUTE NAME ="Enable Test Load" VALUE ="NO"/>
+        <ATTRIBUTE NAME ="$Source connection value" VALUE ="Relational:CDW_Database"/>
+        <ATTRIBUTE NAME ="$Target connection value" VALUE ="Relational:CDW_Database"/>
+        <ATTRIBUTE NAME ="Treat source rows as" VALUE ="Data driven"/>
+        <ATTRIBUTE NAME ="Commit Type" VALUE ="Target"/>
+        <ATTRIBUTE NAME ="Commit Interval" VALUE ="10000"/>
+        <ATTRIBUTE NAME ="Commit On End Of File" VALUE ="YES"/>
+        <ATTRIBUTE NAME ="Rollback Transactions on Errors" VALUE ="NO"/>
+        <ATTRIBUTE NAME ="Recovery Strategy" VALUE ="Restart task"/>
+        <ATTRIBUTE NAME ="Java Classpath" VALUE =""/>
+        <ATTRIBUTE NAME ="Performance" VALUE =""/>
+        <ATTRIBUTE NAME ="DTM buffer size" VALUE ="Auto"/>
+        <ATTRIBUTE NAME ="Collect performance data" VALUE ="NO"/>
+        <ATTRIBUTE NAME ="Write performance data to repository" VALUE ="NO"/>
+        <ATTRIBUTE NAME ="Incremental Aggregation" VALUE ="NO"/>
+        <ATTRIBUTE NAME ="Enable high precision" VALUE ="YES"/>
+        <ATTRIBUTE NAME ="Session retry on deadlock" VALUE ="NO"/>
+        <ATTRIBUTE NAME ="Pushdown Optimization" VALUE ="None"/>
+        <ATTRIBUTE NAME ="Allow Temporary View for Pushdown" VALUE ="NO"/>
+        <ATTRIBUTE NAME ="Allow Temporary Sequence for Pushdown" VALUE ="NO"/>
+        <ATTRIBUTE NAME ="Allow Pushdown for User Incompatible Connections" VALUE ="NO"/>
+        <METADATAEXTENSION DATATYPE ="STRING" DESCRIPTION ="History of Changes to the Session" DOMAINNAME ="User Defined Metadata Domain" ISCLIENTEDITABLE ="YES" ISCLIENTVISIBLE ="YES" ISREUSABLE ="NO" ISSHAREREAD ="NO" ISSHAREWRITE ="NO" MAXLENGTH ="65536" NAME ="Change History" VALUE ="[25/11/2020 LK] Modify to add TerminalLocationDetID for Sydney&#xD;&#xA;[3/10/2014 JZ] validated it&#xD;&#xA;&#xD;&#xA;[17/01/2011 Joan Zhang] added post-session task to append the pipeline to enable parellel loading&#xD;&#xA;&#xD;&#xA;[06/09/2010 Joan Zhang] validate it" VENDORNAME ="INFORMATICA"/>
+    </SESSION>
+</FOLDER>
+</REPOSITORY>
+</POWERMART>

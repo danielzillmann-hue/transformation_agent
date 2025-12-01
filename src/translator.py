@@ -2,6 +2,7 @@ import json
 import os
 import re
 import logging
+from google.cloud import storage
 from src.llm_client import LLMClient
 
 logger = logging.getLogger(__name__)
@@ -23,7 +24,7 @@ class SchemaTranslator:
             "Reference & Time Data": "crown_reference"
         }
         
-        # Sybase to BigQuery type mapping
+        # Sybase to BigQuery type mapping (built-in defaults)
         self.type_mappings = {
             "INT": "INT64",
             "INTEGER": "INT64",
@@ -51,6 +52,32 @@ class SchemaTranslator:
             "VARBINARY": "BYTES",
             "IMAGE": "BYTES"
         }
+
+        # Track which types came from overrides and which were not mapped at all.
+        self._override_types = set()
+        self._unmapped_types = {}  # base_type -> chosen BQ type
+
+        # Optionally load overrides from a simple text mapping file in GCS.
+        # This allows users to add or change mappings without code changes.
+        bucket = os.getenv("TYPE_MAPPING_BUCKET")
+        path = os.getenv("TYPE_MAPPING_PATH", "config/type_mappings.txt")
+        if bucket:
+            overrides = self._load_type_overrides_from_gcs(bucket, path)
+            if overrides:
+                self.type_mappings.update(overrides)
+                self._override_types.update(overrides.keys())
+                logger.info(
+                    "Loaded %d Sybase→BigQuery type overrides from gs://%s/%s",
+                    len(overrides),
+                    bucket,
+                    path,
+                )
+            else:
+                logger.info(
+                    "No Sybase type overrides loaded from gs://%s/%s (file missing or empty)",
+                    bucket,
+                    path,
+                )
 
     def translate(self, analysis_results, categorization_results):
         """Translates Sybase schemas to BigQuery Dataform project."""
@@ -103,6 +130,12 @@ class SchemaTranslator:
         informatica_converter.convert_informatica_mappings(analysis_results, categorization_results)
         
         logger.info("Schema translation complete.")
+
+        # After translating all tables, write a small report listing any
+        # Sybase types that were not explicitly mapped and what BigQuery
+        # type was used for them. This helps users decide which new
+        # entries to add to the GCS mapping file.
+        self._write_type_mapping_report()
 
     def _create_dataform_structure(self):
         """Creates Dataform project structure."""
@@ -229,7 +262,84 @@ module.exports = { mapSybaseType };
         # Extract base type (remove size/precision)
         base_type = re.split(r'[\(\[]', sybase_type.upper())[0].strip()
         
-        return self.type_mappings.get(base_type, "STRING")
+        if base_type in self.type_mappings:
+            return self.type_mappings[base_type]
+
+        # Fallback for unknown types: record them so we can report later.
+        fallback = "STRING"
+        if base_type not in self._unmapped_types:
+            self._unmapped_types[base_type] = fallback
+        return fallback
+
+    def _write_type_mapping_report(self):
+        """Write a report of unmapped Sybase types encountered in this run."""
+        if not self._unmapped_types:
+            return
+
+        report_path = os.path.join(self.output_dir, "type_mapping_report.txt")
+        try:
+            with open(report_path, "w", encoding="utf-8") as f:
+                f.write("Type Mapping Report\n\n")
+                f.write(
+                    "The following Sybase base types were encountered during translation "
+                    "but did not have explicit mappings in the built-in table or the "
+                    "GCS override file. The agent defaulted them as shown below.\n\n"
+                )
+                for base_type in sorted(self._unmapped_types.keys()):
+                    bq_type = self._unmapped_types[base_type]
+                    f.write(f"{base_type} -> {bq_type}\n")
+
+            logger.info("Wrote type mapping report to %s", report_path)
+        except Exception as e:
+            logger.warning("Failed to write type mapping report: %s", e)
+
+    def _load_type_overrides_from_gcs(self, bucket_name: str, blob_path: str):
+        """Load Sybase→BigQuery type overrides from a text file in GCS.
+
+        File format (lines):
+            SMALL_IDENTIFIER=INT64
+            AGE_RANGE=STRING
+
+        Lines starting with '#' or empty lines are ignored.
+        """
+        try:
+            client = storage.Client()
+            bucket = client.bucket(bucket_name)
+            blob = bucket.blob(blob_path)
+            if not blob.exists():
+                logger.warning(
+                    "Type mapping override file not found in GCS: gs://%s/%s",
+                    bucket_name,
+                    blob_path,
+                )
+                return {}
+
+            text = blob.download_as_text()
+            overrides = {}
+            for line in text.splitlines():
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" not in line:
+                    logger.warning("Skipping invalid type mapping line: %s", line)
+                    continue
+                key, value = line.split("=", 1)
+                key = key.strip().upper()
+                value = value.strip()
+                if not key or not value:
+                    logger.warning("Skipping incomplete type mapping line: %s", line)
+                    continue
+                overrides[key] = value
+
+            return overrides
+        except Exception as e:
+            logger.warning(
+                "Failed to load type overrides from gs://%s/%s: %s",
+                bucket_name,
+                blob_path,
+                e,
+            )
+            return {}
 
     def _suggest_partition_field(self, columns):
         """Suggests a partition field based on column types."""
@@ -263,27 +373,26 @@ module.exports = { mapSybaseType };
         return cluster_candidates
 
     def _generate_sqlx(self, table_name, dataset, columns, partition_field, cluster_fields, domain):
-        """Generates Dataform .sqlx content."""
+        """Generates Dataform .sqlx content with valid config syntax."""
+
+        # Base properties (include commas on the lines themselves)
         config_lines = [
-            f'  type: "table"',
-            f'  schema: "{dataset}"',
+            '  type: "table",',
+            f'  schema: "{dataset}",',
             f'  description: "Migrated from Sybase - {domain}"'
         ]
-        
-        if partition_field:
-            config_lines.append(f'  bigquery: {{')
-            config_lines.append(f'    partitionBy: "{partition_field}"')
+
+        # Optional BigQuery-specific settings
+        if partition_field or cluster_fields:
+            config_lines.append('  bigquery: {')
+            if partition_field:
+                config_lines.append(f'    partitionBy: "{partition_field}",')
             if cluster_fields:
                 cluster_str = ", ".join([f'"{f}"' for f in cluster_fields])
                 config_lines.append(f'    clusterBy: [{cluster_str}]')
-            config_lines.append(f'  }}')
-        elif cluster_fields:
-            cluster_str = ", ".join([f'"{f}"' for f in cluster_fields])
-            config_lines.append(f'  bigquery: {{')
-            config_lines.append(f'    clusterBy: [{cluster_str}]')
-            config_lines.append(f'  }}')
-        
-        config_block = "config {\n" + ",\n".join(config_lines) + "\n}\n\n"
+            config_lines.append('  }')
+
+        config_block = "config {\n" + "\n".join(config_lines) + "\n}\n\n"
         
         # Generate SELECT statement
         select_statement = "SELECT\n" + ",\n".join(columns) + "\nFROM `${ref('sybase_source')}`"

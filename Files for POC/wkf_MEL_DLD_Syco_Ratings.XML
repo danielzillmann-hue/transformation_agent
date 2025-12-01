@@ -1,0 +1,859 @@
+<?xml version="1.0" encoding="Windows-1252"?>
+<!DOCTYPE POWERMART SYSTEM "powrmart.dtd">
+<POWERMART CREATION_DATE="07/16/2025 14:49:31" REPOSITORY_VERSION="185.94">
+<REPOSITORY NAME="PCRS_PROD" VERSION="185" CODEPAGE="MS1252" DATABASETYPE="Microsoft SQL Server">
+<FOLDER NAME="CDW_Common" GROUP="" OWNER="Administrator" SHARED="SHARED" DESCRIPTION="" PERMISSIONS="rwx------" UUID="4189e113-c5fd-4afb-b02e-ba9e16fea30c">
+    <CONFIG DESCRIPTION ="Default session configuration object" ISDEFAULT ="YES" NAME ="default_session_config" VERSIONNUMBER ="23">
+        <ATTRIBUTE NAME ="Advanced" VALUE =""/>
+        <ATTRIBUTE NAME ="Constraint based load ordering" VALUE ="NO"/>
+        <ATTRIBUTE NAME ="Cache LOOKUP() function" VALUE ="YES"/>
+        <ATTRIBUTE NAME ="Default buffer block size" VALUE ="Auto"/>
+        <ATTRIBUTE NAME ="Line Sequential buffer length" VALUE ="1024"/>
+        <ATTRIBUTE NAME ="Maximum Memory Allowed For Auto Memory Attributes" VALUE ="512MB"/>
+        <ATTRIBUTE NAME ="Maximum Percentage of Total Memory Allowed For Auto Memory Attributes" VALUE ="5"/>
+        <ATTRIBUTE NAME ="Additional Concurrent Pipelines for Lookup Cache Creation" VALUE ="auto"/>
+        <ATTRIBUTE NAME ="Custom Properties" VALUE =""/>
+        <ATTRIBUTE NAME ="Pre-build lookup cache" VALUE ="Auto"/>
+        <ATTRIBUTE NAME ="Optimization Level" VALUE ="Medium"/>
+        <ATTRIBUTE NAME ="DateTime Format String" VALUE ="MM/DD/YYYY HH24:MI:SS"/>
+        <ATTRIBUTE NAME ="Pre 85 Timestamp Compatibility" VALUE ="YES"/>
+        <ATTRIBUTE NAME ="Log Options" VALUE ="0"/>
+        <ATTRIBUTE NAME ="Save session log by" VALUE ="Session timestamp"/>
+        <ATTRIBUTE NAME ="Session Log File Max Size" VALUE ="0"/>
+        <ATTRIBUTE NAME ="Session Log File Max Time Period" VALUE ="0"/>
+        <ATTRIBUTE NAME ="Maximum Partial Session Log Files" VALUE ="1"/>
+        <ATTRIBUTE NAME ="Writer Commit Statistics Log Frequency" VALUE ="1"/>
+        <ATTRIBUTE NAME ="Writer Commit Statistics Log Interval" VALUE ="0"/>
+        <ATTRIBUTE NAME ="Error handling" VALUE =""/>
+        <ATTRIBUTE NAME ="Stop on errors" VALUE ="$PMSessionErrorThreshold"/>
+        <ATTRIBUTE NAME ="Override tracing" VALUE ="None"/>
+        <ATTRIBUTE NAME ="On Stored Procedure error" VALUE ="Stop"/>
+        <ATTRIBUTE NAME ="On Pre-session command task error" VALUE ="Stop"/>
+        <ATTRIBUTE NAME ="On Pre-Post SQL error" VALUE ="Stop"/>
+        <ATTRIBUTE NAME ="Enable Recovery" VALUE ="NO"/>
+        <ATTRIBUTE NAME ="Error Log Type" VALUE ="None"/>
+        <ATTRIBUTE NAME ="Error Log Table Name Prefix" VALUE =""/>
+        <ATTRIBUTE NAME ="Error Log File Name" VALUE ="PMError.log"/>
+        <ATTRIBUTE NAME ="Log Source Row Data" VALUE ="NO"/>
+        <ATTRIBUTE NAME ="Data Column Delimiter" VALUE ="|"/>
+        <ATTRIBUTE NAME ="Partitioning Options" VALUE =""/>
+        <ATTRIBUTE NAME ="Dynamic Partitioning" VALUE ="Disabled"/>
+        <ATTRIBUTE NAME ="Number of Partitions" VALUE ="1"/>
+        <ATTRIBUTE NAME ="Multiplication Factor" VALUE ="Auto"/>
+        <ATTRIBUTE NAME ="Session on Grid" VALUE =""/>
+        <ATTRIBUTE NAME ="Is Enabled" VALUE ="NO"/>
+    </CONFIG>
+    <TASK DESCRIPTION ="" NAME ="cmd_PageOnError" REUSABLE ="YES" TYPE ="Command" VERSIONNUMBER ="22">
+        <ATTRIBUTE NAME ="Fail task if any command fails" VALUE ="YES"/>
+        <ATTRIBUTE NAME ="Recovery Strategy" VALUE ="Restart task"/>
+        <VALUEPAIR EXECORDER ="1" NAME ="Page On Error" REVERSEASSIGNMENT ="NO" VALUE ="D:&#x5c;CDW&#x5c;Scripts&#x5c;Common&#x5c;page.pl &quot;Session $PMSessionName has failed.&quot; D:&#x5c;CDW&#x5c;Logs"/>
+    </TASK>
+    <TASK DESCRIPTION ="" NAME ="cmd_Target_Parse" REUSABLE ="YES" TYPE ="Command" VERSIONNUMBER ="2">
+        <ATTRIBUTE NAME ="Fail task if any command fails" VALUE ="NO"/>
+        <ATTRIBUTE NAME ="Recovery Strategy" VALUE ="Fail task and continue workflow"/>
+        <VALUEPAIR EXECORDER ="1" NAME ="Command1" REVERSEASSIGNMENT ="NO" VALUE ="$$PosScriptConfigLocation&#x5c;Target_Parse.pl $PMTargetFileDir $PMSessionName $$ScriptLogLocation"/>
+    </TASK>
+    <TASK DESCRIPTION ="Command task to initiate a new Job Detail record for the specified ETL Job Identifier&#xD;&#xA;&#xD;&#xA;Parameters:&#xD;&#xA; - ETLJobId: The identifier of the ETL Job Id record relevant to this task&#xD;&#xA; - SiteId&#xD;&#xA; - GamingDateLinkId: The linkid to use to determine the current gaming date" NAME ="cmd_JobDetail_Start" REUSABLE ="YES" TYPE ="Command" VERSIONNUMBER ="10">
+        <ATTRIBUTE NAME ="Fail task if any command fails" VALUE ="YES"/>
+        <ATTRIBUTE NAME ="Recovery Strategy" VALUE ="Restart task"/>
+        <VALUEPAIR EXECORDER ="1" NAME ="Command" REVERSEASSIGNMENT ="NO" VALUE ="$$CommonScriptLocation&#x5c;execute_sp.pl &quot;usp_JobDetail_Start &lt;ETLJobId&gt;, $$SiteId, &lt;GamingDateLinkId&gt;&quot; $$ScriptLogLocation"/>
+    </TASK>
+    <TASK DESCRIPTION ="Command task to close an existing Job Detail record for the specified ETL Job Identifier&#xD;&#xA;&#xD;&#xA;Parameters:&#xD;&#xA; - ETLJobId:         The identifier of the ETL Job Id record relevant to this task&#xD;&#xA; - SiteId:           Site identifer for current run&#xD;&#xA; - GamingDateLinkId: The linkid to use to determine the current gaming date&#xD;&#xA; - Table Name:       Table in which to count rows processed by current run" NAME ="cmd_JobDetail_End" REUSABLE ="YES" TYPE ="Command" VERSIONNUMBER ="11">
+        <ATTRIBUTE NAME ="Fail task if any command fails" VALUE ="YES"/>
+        <ATTRIBUTE NAME ="Recovery Strategy" VALUE ="Restart task"/>
+        <VALUEPAIR EXECORDER ="1" NAME ="Command" REVERSEASSIGNMENT ="NO" VALUE ="$$CommonScriptLocation&#x5c;execute_sp.pl &quot;usp_JobDetail_End &lt;ETLJobId&gt;, $$SiteId, &lt;GamingDateLinkId&gt;, &apos;&lt;TableName&gt;&apos;&quot; $$ScriptLogLocation"/>
+    </TASK>
+    <TASK DESCRIPTION ="" NAME ="cmd_ExecuteSP" REUSABLE ="YES" TYPE ="Command" VERSIONNUMBER ="19">
+        <ATTRIBUTE NAME ="Fail task if any command fails" VALUE ="YES"/>
+        <ATTRIBUTE NAME ="Recovery Strategy" VALUE ="Restart task"/>
+        <VALUEPAIR EXECORDER ="1" NAME ="RunSP" REVERSEASSIGNMENT ="NO" VALUE ="$$CommonScriptLocation&#x5c;execute_sp.pl &quot;SP_name $$TargetDir&quot; $$ScriptLogLocation"/>
+    </TASK>
+    <SESSION DESCRIPTION ="" ISVALID ="YES" MAPPINGNAME ="m_GamingRating" NAME ="s_m_GamingRating" REUSABLE ="YES" SORTORDER ="Binary" VERSIONNUMBER ="28">
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="YES" PARTITIONTYPE ="PASS THROUGH" PIPELINE ="1" SINSTANCENAME ="Shortcut_To_F_GAMINGRATING" STAGE ="3" TRANSFORMATIONNAME ="Shortcut_To_F_GAMINGRATING" TRANSFORMATIONTYPE ="Target Definition">
+            <FLATFILE CODEPAGE ="MS1252" CONSECDELIMITERSASONE ="NO" DELIMITED ="YES" DELIMITERS ="|" ESCAPE_CHARACTER ="" KEEPESCAPECHAR ="NO" LINESEQUENTIAL ="NO" MULTIDELIMITERSASAND ="NO" NULLCHARTYPE ="ASCII" NULL_CHARACTER ="*" PADBYTES ="1" QUOTE_CHARACTER ="NONE" REPEATABLE ="NO" ROWDELIMITER ="10" SKIPROWS ="0" STRIPTRAILINGBLANKS ="NO"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="YES" PARTITIONTYPE ="PASS THROUGH" PIPELINE ="1" SINSTANCENAME ="Shortcut_To_REJ_F_GAMINGRATING" STAGE ="4" TRANSFORMATIONNAME ="Shortcut_To_REJ_F_GAMINGRATING" TRANSFORMATIONTYPE ="Target Definition">
+            <FLATFILE CODEPAGE ="MS1252" CONSECDELIMITERSASONE ="NO" DELIMITED ="YES" DELIMITERS ="|" ESCAPE_CHARACTER ="" KEEPESCAPECHAR ="NO" LINESEQUENTIAL ="NO" MULTIDELIMITERSASAND ="NO" NULLCHARTYPE ="ASCII" NULL_CHARACTER ="*" PADBYTES ="1" QUOTE_CHARACTER ="NONE" REPEATABLE ="NO" ROWDELIMITER ="10" SKIPROWS ="0" STRIPTRAILINGBLANKS ="NO"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="YES" PARTITIONTYPE ="PASS THROUGH" PIPELINE ="1" SINSTANCENAME ="Shortcut_To_ALT_F_GAMINGRATING" STAGE ="1" TRANSFORMATIONNAME ="Shortcut_To_ALT_F_GAMINGRATING" TRANSFORMATIONTYPE ="Target Definition">
+            <FLATFILE CODEPAGE ="MS1252" CONSECDELIMITERSASONE ="NO" DELIMITED ="YES" DELIMITERS ="|" ESCAPE_CHARACTER ="" KEEPESCAPECHAR ="NO" LINESEQUENTIAL ="NO" MULTIDELIMITERSASAND ="NO" NULLCHARTYPE ="ASCII" NULL_CHARACTER ="*" PADBYTES ="1" QUOTE_CHARACTER ="NONE" REPEATABLE ="NO" ROWDELIMITER ="10" SKIPROWS ="0" STRIPTRAILINGBLANKS ="NO"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="YES" PARTITIONTYPE ="PASS THROUGH" PIPELINE ="1" SINSTANCENAME ="Shortcut_To_W_Tbl_Rebuild_Keys" STAGE ="2" TRANSFORMATIONNAME ="Shortcut_To_W_Tbl_Rebuild_Keys" TRANSFORMATIONTYPE ="Target Definition">
+            <FLATFILE CODEPAGE ="MS1252" CONSECDELIMITERSASONE ="NO" DELIMITED ="YES" DELIMITERS ="|" ESCAPE_CHARACTER ="" KEEPESCAPECHAR ="NO" LINESEQUENTIAL ="NO" MULTIDELIMITERSASAND ="NO" NULLCHARTYPE ="ASCII" NULL_CHARACTER ="*" PADBYTES ="1" QUOTE_CHARACTER ="NONE" REPEATABLE ="NO" ROWDELIMITER ="10" SKIPROWS ="0" STRIPTRAILINGBLANKS ="NO"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_To_S_GamingRating" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_To_S_GamingRating" TRANSFORMATIONTYPE ="Source Definition"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_To_Lkp_AgeID" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_To_Lkp_AgeID" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_To_Lkp_GamingDate" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_To_Lkp_GamingDate" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_To_Lkp_Hour" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_To_Lkp_Hour" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_To_Lkp_ValidationCode" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_To_Lkp_ValidationCode" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_To_Lkp_CasinoLocationDetail" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_To_Lkp_CasinoLocationDetail" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_To_Lkp_Day" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_To_Lkp_Day" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Exp_Validate" STAGE ="6" TRANSFORMATIONNAME ="Exp_Validate" TRANSFORMATIONTYPE ="Expression">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+            <ATTRIBUTE NAME ="Tracing Level" VALUE ="Normal"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Rtr_RejectAlert" STAGE ="6" TRANSFORMATIONNAME ="Rtr_RejectAlert" TRANSFORMATIONTYPE ="Router">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Lkp_D_HOUR_PubHldyName" STAGE ="0" TRANSFORMATIONNAME ="Lkp_D_HOUR_PubHldyName" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Upd_W_EGM_Received_Keys_Insert" STAGE ="6" TRANSFORMATIONNAME ="Upd_W_EGM_Received_Keys_Insert" TRANSFORMATIONTYPE ="Update Strategy">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Exp_SetRowType" STAGE ="6" TRANSFORMATIONNAME ="Exp_SetRowType" TRANSFORMATIONTYPE ="Expression">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="YES" PARTITIONTYPE ="PASS THROUGH" PIPELINE ="1" SINSTANCENAME ="SQ_S_GamingRating" STAGE ="6" TRANSFORMATIONNAME ="SQ_S_GamingRating" TRANSFORMATIONTYPE ="Source Qualifier"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Exp_TransformTargets" STAGE ="6" TRANSFORMATIONNAME ="Exp_TransformTargets" TRANSFORMATIONTYPE ="Expression">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+            <ATTRIBUTE NAME ="Tracing Level" VALUE ="Normal"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Upd_F_GamingRating_Insert" STAGE ="6" TRANSFORMATIONNAME ="Upd_F_GamingRating_Insert" TRANSFORMATIONTYPE ="Update Strategy">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Srt_DistinctRebuildKeys" STAGE ="6" TRANSFORMATIONNAME ="Srt_DistinctRebuildKeys" TRANSFORMATIONTYPE ="Sorter">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Shortcut_To_Lkp_Site" STAGE ="6" TRANSFORMATIONNAME ="Shortcut_To_Lkp_Site" TRANSFORMATIONTYPE ="Lookup Procedure">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Shortcut_to_Lkp_Program" STAGE ="6" TRANSFORMATIONNAME ="Shortcut_to_Lkp_Program" TRANSFORMATIONTYPE ="Lookup Procedure">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_To_Lkp_SctyCde" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_To_Lkp_SctyCde" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_To_Lkp_Product_Buskey" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_To_Lkp_Product_Buskey" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_To_Lkp_CasinoLocation_Buskey" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_To_Lkp_CasinoLocation_Buskey" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_To_Lkp_ProductDet_Buskey" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_To_Lkp_ProductDet_Buskey" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_To_Lkp_D_Status_Code" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_To_Lkp_D_Status_Code" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="YES" PARTITIONTYPE ="PASS THROUGH" PIPELINE ="1" SINSTANCENAME ="Shortcut_to_W_EGM_Received_Keys" STAGE ="5" TRANSFORMATIONNAME ="Shortcut_to_W_EGM_Received_Keys" TRANSFORMATIONTYPE ="Target Definition">
+            <FLATFILE CODEPAGE ="MS1252" CONSECDELIMITERSASONE ="NO" DELIMITED ="YES" DELIMITERS ="|" ESCAPE_CHARACTER ="" KEEPESCAPECHAR ="NO" LINESEQUENTIAL ="NO" MULTIDELIMITERSASAND ="NO" NULLCHARTYPE ="ASCII" NULL_CHARACTER ="*" PADBYTES ="1" QUOTE_CHARACTER ="NONE" REPEATABLE ="NO" ROWDELIMITER ="10" SKIPROWS ="0" STRIPTRAILINGBLANKS ="NO"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Shortcut_to_Lkp_GamingMachine_Configuration_Product" STAGE ="6" TRANSFORMATIONNAME ="Shortcut_to_Lkp_GamingMachine_Configuration_Product" TRANSFORMATIONTYPE ="Lookup Procedure">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_To_Lkp_GamingMachine_Buskey" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_To_Lkp_GamingMachine_Buskey" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="YES" PARTITIONTYPE ="PASS THROUGH" PIPELINE ="1" SINSTANCENAME ="Shortcut_To_W_Patron_Aggregate_Keys_Extract" STAGE ="7" TRANSFORMATIONNAME ="Shortcut_To_W_Patron_Aggregate_Keys_Extract" TRANSFORMATIONTYPE ="Target Definition">
+            <FLATFILE CODEPAGE ="MS1252" CONSECDELIMITERSASONE ="NO" DELIMITED ="YES" DELIMITERS ="|" ESCAPE_CHARACTER ="" KEEPESCAPECHAR ="NO" LINESEQUENTIAL ="NO" MULTIDELIMITERSASAND ="NO" NULLCHARTYPE ="ASCII" NULL_CHARACTER ="*" PADBYTES ="1" QUOTE_CHARACTER ="NONE" REPEATABLE ="NO" ROWDELIMITER ="10" SKIPROWS ="0" STRIPTRAILINGBLANKS ="NO"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Exp_set_AggregateSrcTblCde" STAGE ="8" TRANSFORMATIONNAME ="Exp_set_AggregateSrcTblCde" TRANSFORMATIONTYPE ="Expression">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="YES" PARTITIONTYPE ="HASH AUTO KEYS" PIPELINE ="1" SINSTANCENAME ="Agg_Distinct" STAGE ="8" TRANSFORMATIONNAME ="Agg_Distinct" TRANSFORMATIONTYPE ="Aggregator">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Flt_changed_ratings" STAGE ="6" TRANSFORMATIONNAME ="Flt_changed_ratings" TRANSFORMATIONTYPE ="Filter">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Shortcut_To_Lkp_Department_DeptGrp" STAGE ="6" TRANSFORMATIONNAME ="Shortcut_To_Lkp_Department_DeptGrp" TRANSFORMATIONTYPE ="Lookup Procedure">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Shortcut_To_Lkp_Patron_PastDate" STAGE ="6" TRANSFORMATIONNAME ="Shortcut_To_Lkp_Patron_PastDate" TRANSFORMATIONTYPE ="Lookup Procedure">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+            <ATTRIBUTE NAME ="Cache File Name Prefix" VALUE ="Patron_ID_PastDate_DOB"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_To_Lkp_Patron_PastDate_ANC" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_To_Lkp_Patron_PastDate_ANC" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Exp_PreLkupTransform" STAGE ="6" TRANSFORMATIONNAME ="Exp_PreLkupTransform" TRANSFORMATIONTYPE ="Expression">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+            <ATTRIBUTE NAME ="Tracing Level" VALUE ="Normal"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_To_F_GAMINGRATING" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_To_F_GAMINGRATING" TRANSFORMATIONTYPE ="Source Definition"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Exp_Source_Transform" STAGE ="6" TRANSFORMATIONNAME ="Exp_Source_Transform" TRANSFORMATIONTYPE ="Expression">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Lkp_CasinoLocationDet_GamingArea" STAGE ="6" TRANSFORMATIONNAME ="Lkp_CasinoLocationDet_GamingArea" TRANSFORMATIONTYPE ="Lookup Procedure">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+            <ATTRIBUTE NAME ="Connection Information" VALUE ="$Source"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_To_Lkp_CasinoLocationDetail_TG" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_To_Lkp_CasinoLocationDetail_TG" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_to_Lkp_JobDetID" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_to_Lkp_JobDetID" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_To_Lkp_Patron_Currrow" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_To_Lkp_Patron_Currrow" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_to_Lkp_Jackpot_Product_Type" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_to_Lkp_Jackpot_Product_Type" TRANSFORMATIONTYPE ="Lookup Procedure">
+            <ATTRIBUTE NAME ="Connection Information" VALUE ="$Source"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Lkp_JackPort_Product_Type_Order" STAGE ="0" TRANSFORMATIONNAME ="Lkp_JackPort_Product_Type_Order" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_to_Lkp_D_TRANSTYPE" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_to_Lkp_D_TRANSTYPE" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_to_Lkp_D_GamingLicense" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_to_Lkp_D_GamingLicense" TRANSFORMATIONTYPE ="Lookup Procedure">
+            <ATTRIBUTE NAME ="Connection Information" VALUE ="$Source"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_to_Lkp_GamingMachine_License_Configuration_By_GamingMachineId" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_to_Lkp_GamingMachine_License_Configuration_By_GamingMachineId" TRANSFORMATIONTYPE ="Lookup Procedure">
+            <ATTRIBUTE NAME ="Connection Information" VALUE ="$Source"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Shortcut_to_Lkp_Patron_DOB" STAGE ="6" TRANSFORMATIONNAME ="Shortcut_to_Lkp_Patron_DOB" TRANSFORMATIONTYPE ="Lookup Procedure">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Shortcut_to_Lkp_Patron_DOB_ANC" STAGE ="6" TRANSFORMATIONNAME ="Shortcut_to_Lkp_Patron_DOB_ANC" TRANSFORMATIONTYPE ="Lookup Procedure">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="YES" PARTITIONTYPE ="PASS THROUGH" PIPELINE ="1" SINSTANCENAME ="Shortcut_to_R_GamingRating1" STAGE ="10" TRANSFORMATIONNAME ="Shortcut_to_R_GamingRating1" TRANSFORMATIONTYPE ="Target Definition">
+            <FLATFILE CODEPAGE ="MS1252" CONSECDELIMITERSASONE ="NO" DELIMITED ="YES" DELIMITERS ="|" ESCAPE_CHARACTER ="" KEEPESCAPECHAR ="NO" LINESEQUENTIAL ="NO" MULTIDELIMITERSASAND ="NO" NULLCHARTYPE ="ASCII" NULL_CHARACTER ="*" PADBYTES ="1" QUOTE_CHARACTER ="NONE" REPEATABLE ="NO" ROWDELIMITER ="10" SKIPROWS ="0" STRIPTRAILINGBLANKS ="NO"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="1" SINSTANCENAME ="Shortcut_to_Lkp_F_FATG_Configuration_TerminalLocDetID" STAGE ="6" TRANSFORMATIONNAME ="Shortcut_to_Lkp_F_FATG_Configuration_TerminalLocDetID" TRANSFORMATIONTYPE ="Lookup Procedure">
+            <PARTITION DESCRIPTION ="" NAME ="Partition #1"/>
+            <ATTRIBUTE NAME ="Connection Information" VALUE ="$Source"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_to_LKP_Terminal_Location_BusKey" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_to_LKP_Terminal_Location_BusKey" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_to_Lkp_Product_ETG" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_to_Lkp_Product_ETG" TRANSFORMATIONTYPE ="Lookup Procedure">
+            <ATTRIBUTE NAME ="Connection Information" VALUE ="$Source"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_to_Lkp_D_ProductDet_GameCode" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_to_Lkp_D_ProductDet_GameCode" TRANSFORMATIONTYPE ="Lookup Procedure">
+            <ATTRIBUTE NAME ="Connection Information" VALUE ="$Source"/>
+        </SESSTRANSFORMATIONINST>
+        <SESSTRANSFORMATIONINST ISREPARTITIONPOINT ="NO" PIPELINE ="0" SINSTANCENAME ="Shortcut_to_Lkp_F_TableBetConfiguration_RatingTime" STAGE ="0" TRANSFORMATIONNAME ="Shortcut_to_Lkp_F_TableBetConfiguration_RatingTime" TRANSFORMATIONTYPE ="Lookup Procedure"/>
+        <CONFIGREFERENCE REFOBJECTNAME ="default_session_config" TYPE ="Session config"/>
+        <SESSIONCOMPONENT REFOBJECTNAME ="cmd_Target_Parse" REUSABLE ="YES" TYPE ="Post-session success command"/>
+        <SESSIONCOMPONENT REFOBJECTNAME ="cmd_PageOnError" REUSABLE ="YES" TYPE ="Post-session failure command"/>
+        <SESSIONEXTENSION NAME ="File Writer" SINSTANCENAME ="Shortcut_To_F_GAMINGRATING" SUBTYPE ="File Writer" TRANSFORMATIONTYPE ="Target Definition" TYPE ="WRITER">
+            <CONNECTIONREFERENCE CNXREFNAME ="Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="" VARIABLE =""/>
+            <ATTRIBUTE NAME ="Merge Type" VALUE ="No Merge"/>
+            <ATTRIBUTE NAME ="Merge File Directory" VALUE ="$PMTargetFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Merge File Name" VALUE ="shortcut_to_f_gamingrating.out"/>
+            <ATTRIBUTE NAME ="Append if Exists" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Create Target Directory" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Header Options" VALUE ="No Header"/>
+            <ATTRIBUTE NAME ="Header Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Footer Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Output Type" VALUE ="File"/>
+            <ATTRIBUTE NAME ="Merge Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Output file directory" VALUE ="$PMTargetFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Output filename" VALUE ="gamingrating_insert.txt"/>
+            <ATTRIBUTE NAME ="Reject file directory" VALUE ="$PMBadFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Reject filename" VALUE ="gamingrating_insert.bad"/>
+            <ATTRIBUTE NAME ="Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Codepage Parameter" VALUE =""/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="File Writer" SINSTANCENAME ="Shortcut_To_REJ_F_GAMINGRATING" SUBTYPE ="File Writer" TRANSFORMATIONTYPE ="Target Definition" TYPE ="WRITER">
+            <CONNECTIONREFERENCE CNXREFNAME ="Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="" VARIABLE =""/>
+            <ATTRIBUTE NAME ="Merge Type" VALUE ="No Merge"/>
+            <ATTRIBUTE NAME ="Merge File Directory" VALUE ="$PMTargetFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Merge File Name" VALUE ="shortcut_to_rej_f_gamingrating.out"/>
+            <ATTRIBUTE NAME ="Append if Exists" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Create Target Directory" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Header Options" VALUE ="Output Field Names"/>
+            <ATTRIBUTE NAME ="Header Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Footer Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Output Type" VALUE ="File"/>
+            <ATTRIBUTE NAME ="Merge Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Output file directory" VALUE ="$PMTargetFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Output filename" VALUE ="gamingrating_reject.txt"/>
+            <ATTRIBUTE NAME ="Reject file directory" VALUE ="$PMBadFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Reject filename" VALUE ="gamingrating_reject.bad"/>
+            <ATTRIBUTE NAME ="Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Codepage Parameter" VALUE =""/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="File Writer" SINSTANCENAME ="Shortcut_To_ALT_F_GAMINGRATING" SUBTYPE ="File Writer" TRANSFORMATIONTYPE ="Target Definition" TYPE ="WRITER">
+            <CONNECTIONREFERENCE CNXREFNAME ="Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="" VARIABLE =""/>
+            <ATTRIBUTE NAME ="Merge Type" VALUE ="No Merge"/>
+            <ATTRIBUTE NAME ="Merge File Directory" VALUE ="$PMTargetFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Merge File Name" VALUE ="shortcut_to_alt_f_gamingrating.out"/>
+            <ATTRIBUTE NAME ="Append if Exists" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Create Target Directory" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Header Options" VALUE ="No Header"/>
+            <ATTRIBUTE NAME ="Header Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Footer Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Output Type" VALUE ="File"/>
+            <ATTRIBUTE NAME ="Merge Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Output file directory" VALUE ="$PMTargetFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Output filename" VALUE ="gamingrating_alert.txt"/>
+            <ATTRIBUTE NAME ="Reject file directory" VALUE ="$PMBadFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Reject filename" VALUE ="gamingrating_alert.bad"/>
+            <ATTRIBUTE NAME ="Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Codepage Parameter" VALUE =""/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="File Writer" SINSTANCENAME ="Shortcut_To_W_Tbl_Rebuild_Keys" SUBTYPE ="File Writer" TRANSFORMATIONTYPE ="Target Definition" TYPE ="WRITER">
+            <CONNECTIONREFERENCE CNXREFNAME ="Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="" VARIABLE =""/>
+            <ATTRIBUTE NAME ="Merge Type" VALUE ="No Merge"/>
+            <ATTRIBUTE NAME ="Merge File Directory" VALUE ="$PMTargetFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Merge File Name" VALUE ="shortcut_to_w_tbl_rebuild_keys.out"/>
+            <ATTRIBUTE NAME ="Append if Exists" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Create Target Directory" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Header Options" VALUE ="No Header"/>
+            <ATTRIBUTE NAME ="Header Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Footer Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Output Type" VALUE ="File"/>
+            <ATTRIBUTE NAME ="Merge Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Output file directory" VALUE ="$PMTargetFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Output filename" VALUE ="w_rebuild_keys_ratings.txt"/>
+            <ATTRIBUTE NAME ="Reject file directory" VALUE ="$PMBadFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Reject filename" VALUE ="w_rebuild_keys_ratings.bad"/>
+            <ATTRIBUTE NAME ="Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Codepage Parameter" VALUE =""/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION DSQINSTNAME ="SQ_S_GamingRating" DSQINSTTYPE ="Source Qualifier" NAME ="Relational Reader" SINSTANCENAME ="Shortcut_To_S_GamingRating" SUBTYPE ="Relational Reader" TRANSFORMATIONTYPE ="Source Definition" TYPE ="READER"/>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_AgeID" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_GamingDate" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_Hour" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_ValidationCode" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_CasinoLocationDetail" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Target"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_Day" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Lkp_D_HOUR_PubHldyName" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Reader" SINSTANCENAME ="SQ_S_GamingRating" SUBTYPE ="Relational Reader" TRANSFORMATIONTYPE ="Source Qualifier" TYPE ="READER">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="CDW_Database" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="ODBC" CONNECTIONTYPE ="Relational" VARIABLE =""/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_Site" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Target"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_to_Lkp_Program" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Target"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_SctyCde" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Target"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_Product_Buskey" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Target"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_CasinoLocation_Buskey" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Target"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_ProductDet_Buskey" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Target"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_D_Status_Code" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="File Writer" SINSTANCENAME ="Shortcut_to_W_EGM_Received_Keys" SUBTYPE ="File Writer" TRANSFORMATIONTYPE ="Target Definition" TYPE ="WRITER">
+            <CONNECTIONREFERENCE CNXREFNAME ="Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="" VARIABLE =""/>
+            <ATTRIBUTE NAME ="Merge Type" VALUE ="No Merge"/>
+            <ATTRIBUTE NAME ="Merge File Directory" VALUE ="$PMTargetFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Merge File Name" VALUE ="shortcut_to_w_egm_received_keys.out"/>
+            <ATTRIBUTE NAME ="Append if Exists" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Create Target Directory" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Header Options" VALUE ="No Header"/>
+            <ATTRIBUTE NAME ="Header Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Footer Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Output Type" VALUE ="File"/>
+            <ATTRIBUTE NAME ="Merge Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Output file directory" VALUE ="$PMTargetFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Output filename" VALUE ="egm_received_keys_rating_insert.txt"/>
+            <ATTRIBUTE NAME ="Reject file directory" VALUE ="$PMBadFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Reject filename" VALUE ="egm_received_keys_rating_insert.bad"/>
+            <ATTRIBUTE NAME ="Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Codepage Parameter" VALUE =""/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_to_Lkp_GamingMachine_Configuration_Product" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Target"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_GamingMachine_Buskey" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Target"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="File Writer" SINSTANCENAME ="Shortcut_To_W_Patron_Aggregate_Keys_Extract" SUBTYPE ="File Writer" TRANSFORMATIONTYPE ="Target Definition" TYPE ="WRITER">
+            <CONNECTIONREFERENCE CNXREFNAME ="Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="" VARIABLE =""/>
+            <ATTRIBUTE NAME ="Merge Type" VALUE ="No Merge"/>
+            <ATTRIBUTE NAME ="Merge File Directory" VALUE ="$PMTargetFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Merge File Name" VALUE ="shortcut_to_w_patron_aggregate_keys_extract.out"/>
+            <ATTRIBUTE NAME ="Append if Exists" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Create Target Directory" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Header Options" VALUE ="No Header"/>
+            <ATTRIBUTE NAME ="Header Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Footer Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Output Type" VALUE ="File"/>
+            <ATTRIBUTE NAME ="Merge Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Output file directory" VALUE ="$PMTargetFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Output filename" VALUE ="patron_aggregate_keys_extract_changed_rating.txt"/>
+            <ATTRIBUTE NAME ="Reject file directory" VALUE ="$PMBadFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Reject filename" VALUE ="shortcut_to_w_patron_aggregate_keys_extract1.bad"/>
+            <ATTRIBUTE NAME ="Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Codepage Parameter" VALUE =""/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_Department_DeptGrp" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Target"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_Patron_PastDate" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_Patron_PastDate_ANC" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION DSQINSTNAME ="SQ_S_GamingRating" DSQINSTTYPE ="Source Qualifier" NAME ="Relational Reader" SINSTANCENAME ="Shortcut_To_F_GAMINGRATING" SUBTYPE ="Relational Reader" TRANSFORMATIONTYPE ="Source Definition" TYPE ="READER"/>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Lkp_CasinoLocationDet_GamingArea" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_CasinoLocationDetail_TG" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_to_Lkp_JobDetID" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Target"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_To_Lkp_Patron_Currrow" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_to_Lkp_Jackpot_Product_Type" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Lkp_JackPort_Product_Type_Order" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_to_Lkp_D_TRANSTYPE" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="CDW_Database" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="ODBC" CONNECTIONTYPE ="Relational" VARIABLE =""/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_to_Lkp_D_GamingLicense" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_to_Lkp_GamingMachine_License_Configuration_By_GamingMachineId" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_to_Lkp_Patron_DOB" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_to_Lkp_Patron_DOB_ANC" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="File Writer" SINSTANCENAME ="Shortcut_to_R_GamingRating1" SUBTYPE ="File Writer" TRANSFORMATIONTYPE ="Target Definition" TYPE ="WRITER">
+            <CONNECTIONREFERENCE CNXREFNAME ="Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="" VARIABLE =""/>
+            <ATTRIBUTE NAME ="Merge Type" VALUE ="No Merge"/>
+            <ATTRIBUTE NAME ="Merge File Directory" VALUE ="$PMTargetFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Merge File Name" VALUE ="shortcut_to_r_gamingrating1.out"/>
+            <ATTRIBUTE NAME ="Append if Exists" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Create Target Directory" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Header Options" VALUE ="No Header"/>
+            <ATTRIBUTE NAME ="Header Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Footer Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Output Type" VALUE ="File"/>
+            <ATTRIBUTE NAME ="Merge Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Output file directory" VALUE ="$PMTargetFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Output filename" VALUE ="w_rej_gamingrating.txt"/>
+            <ATTRIBUTE NAME ="Reject file directory" VALUE ="$PMBadFileDir&#x5c;"/>
+            <ATTRIBUTE NAME ="Reject filename" VALUE ="shortcut_to_r_gamingrating11.bad"/>
+            <ATTRIBUTE NAME ="Command" VALUE =""/>
+            <ATTRIBUTE NAME ="Codepage Parameter" VALUE =""/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_to_Lkp_F_FATG_Configuration_TerminalLocDetID" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_to_LKP_Terminal_Location_BusKey" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Target"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_to_Lkp_Product_ETG" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_to_Lkp_D_ProductDet_GameCode" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="" CONNECTIONTYPE ="Relational" VARIABLE ="$Source"/>
+        </SESSIONEXTENSION>
+        <SESSIONEXTENSION NAME ="Relational Lookup" SINSTANCENAME ="Shortcut_to_Lkp_F_TableBetConfiguration_RatingTime" SUBTYPE ="Relational Lookup" TRANSFORMATIONTYPE ="Lookup Procedure" TYPE ="LOOKUPEXTENSION">
+            <CONNECTIONREFERENCE CNXREFNAME ="DB Connection" CONNECTIONNAME ="CDW_Database" CONNECTIONNUMBER ="1" CONNECTIONSUBTYPE ="ODBC" CONNECTIONTYPE ="Relational" VARIABLE =""/>
+        </SESSIONEXTENSION>
+        <ATTRIBUTE NAME ="General Options" VALUE =""/>
+        <ATTRIBUTE NAME ="Write Backward Compatible Session Log File" VALUE ="YES"/>
+        <ATTRIBUTE NAME ="Session Log File Name" VALUE ="s_m_GamingRating.log"/>
+        <ATTRIBUTE NAME ="Session Log File directory" VALUE ="$PMSessionLogDir&#x5c;"/>
+        <ATTRIBUTE NAME ="Parameter Filename" VALUE =""/>
+        <ATTRIBUTE NAME ="Enable Test Load" VALUE ="NO"/>
+        <ATTRIBUTE NAME ="$Source connection value" VALUE ="Relational:CDW_Database"/>
+        <ATTRIBUTE NAME ="$Target connection value" VALUE ="Relational:CDW_Database"/>
+        <ATTRIBUTE NAME ="Treat source rows as" VALUE ="Data driven"/>
+        <ATTRIBUTE NAME ="Commit Type" VALUE ="Target"/>
+        <ATTRIBUTE NAME ="Commit Interval" VALUE ="10000"/>
+        <ATTRIBUTE NAME ="Commit On End Of File" VALUE ="YES"/>
+        <ATTRIBUTE NAME ="Rollback Transactions on Errors" VALUE ="NO"/>
+        <ATTRIBUTE NAME ="Recovery Strategy" VALUE ="Restart task"/>
+        <ATTRIBUTE NAME ="Java Classpath" VALUE =""/>
+        <ATTRIBUTE NAME ="Performance" VALUE =""/>
+        <ATTRIBUTE NAME ="DTM buffer size" VALUE ="Auto"/>
+        <ATTRIBUTE NAME ="Collect performance data" VALUE ="NO"/>
+        <ATTRIBUTE NAME ="Write performance data to repository" VALUE ="NO"/>
+        <ATTRIBUTE NAME ="Incremental Aggregation" VALUE ="NO"/>
+        <ATTRIBUTE NAME ="Enable high precision" VALUE ="YES"/>
+        <ATTRIBUTE NAME ="Session retry on deadlock" VALUE ="NO"/>
+        <ATTRIBUTE NAME ="Pushdown Optimization" VALUE ="None"/>
+        <ATTRIBUTE NAME ="Allow Temporary View for Pushdown" VALUE ="NO"/>
+        <ATTRIBUTE NAME ="Allow Temporary Sequence for Pushdown" VALUE ="NO"/>
+        <ATTRIBUTE NAME ="Allow Pushdown for User Incompatible Connections" VALUE ="NO"/>
+        <METADATAEXTENSION DATATYPE ="STRING" DESCRIPTION ="History of Changes to the Session" DOMAINNAME ="User Defined Metadata Domain" ISCLIENTEDITABLE ="YES" ISCLIENTVISIBLE ="YES" ISREUSABLE ="NO" ISSHAREREAD ="NO" ISSHAREWRITE ="NO" MAXLENGTH ="65536" NAME ="Change History" VALUE ="[25/11/2020 LK] Modify to add TerminalLocationDetID for Sydney&#xD;&#xA;[3/10/2014 JZ] validated it&#xD;&#xA;&#xD;&#xA;[17/01/2011 Joan Zhang] added post-session task to append the pipeline to enable parellel loading&#xD;&#xA;&#xD;&#xA;[06/09/2010 Joan Zhang] validate it" VENDORNAME ="INFORMATICA"/>
+    </SESSION>
+    <WORKLET DESCRIPTION ="" ISVALID ="YES" NAME ="wkl_Rating" REUSABLE ="YES" VERSIONNUMBER ="9">
+        <TASK DESCRIPTION ="" NAME ="Start" REUSABLE ="NO" TYPE ="Start" VERSIONNUMBER ="4"/>
+        <TASKINSTANCE DESCRIPTION ="" ISENABLED ="YES" NAME ="Start" REUSABLE ="NO" TASKNAME ="Start" TASKTYPE ="Start"/>
+        <TASKINSTANCE DESCRIPTION ="" FAIL_PARENT_IF_INSTANCE_DID_NOT_RUN ="NO" FAIL_PARENT_IF_INSTANCE_FAILS ="YES" ISENABLED ="YES" NAME ="s_m_GamingRating" REUSABLE ="YES" TASKNAME ="s_m_GamingRating" TASKTYPE ="Session" TREAT_INPUTLINK_AS_AND ="YES">
+            <ATTRIBUTE NAME ="Session Log File Name" VALUE ="s_m_GamingRating.log"/>
+        </TASKINSTANCE>
+        <TASKINSTANCE DESCRIPTION ="" FAIL_PARENT_IF_INSTANCE_DID_NOT_RUN ="NO" FAIL_PARENT_IF_INSTANCE_FAILS ="YES" ISENABLED ="YES" NAME ="usp_BatchUpdate_F_GamingRating" REUSABLE ="YES" TASKNAME ="cmd_ExecuteSP" TASKTYPE ="Command" TREAT_INPUTLINK_AS_AND ="YES">
+            <VALUEPAIR EXECORDER ="1" NAME ="RunSP" REVERSEASSIGNMENT ="NO" VALUE ="$$CommonScriptLocation&#x5c;execute_sp.pl &quot;usp_BatchUpdate_F_GamingRating $$TargetDir&quot; $$ScriptLogLocation"/>
+        </TASKINSTANCE>
+        <TASKINSTANCE DESCRIPTION ="" FAIL_PARENT_IF_INSTANCE_DID_NOT_RUN ="NO" FAIL_PARENT_IF_INSTANCE_FAILS ="YES" ISENABLED ="YES" NAME ="usp_BatchUpdate_W_EGM_Received_Keys_Rating" REUSABLE ="YES" TASKNAME ="cmd_ExecuteSP" TASKTYPE ="Command" TREAT_INPUTLINK_AS_AND ="YES">
+            <VALUEPAIR EXECORDER ="1" NAME ="RunSP" REVERSEASSIGNMENT ="NO" VALUE ="$$CommonScriptLocation&#x5c;execute_sp.pl &quot;usp_BatchUpdate_W_EGM_Received_Keys_Rating $$TargetDir&quot; $$ScriptLogLocation"/>
+        </TASKINSTANCE>
+        <TASKINSTANCE DESCRIPTION ="" FAIL_PARENT_IF_INSTANCE_DID_NOT_RUN ="NO" FAIL_PARENT_IF_INSTANCE_FAILS ="YES" ISENABLED ="YES" NAME ="usp_Load_S_GamingRating" REUSABLE ="YES" TASKNAME ="cmd_ExecuteSP" TASKTYPE ="Command" TREAT_INPUTLINK_AS_AND ="YES">
+            <VALUEPAIR EXECORDER ="1" NAME ="RunSP" REVERSEASSIGNMENT ="NO" VALUE ="$$CommonScriptLocation&#x5c;execute_sp.pl &quot;usp_Load_S_GamingRating $$SourceDir, $$Property_no&quot; $$ScriptLogLocation"/>
+        </TASKINSTANCE>
+        <TASKINSTANCE DESCRIPTION ="" FAIL_PARENT_IF_INSTANCE_DID_NOT_RUN ="NO" FAIL_PARENT_IF_INSTANCE_FAILS ="YES" ISENABLED ="YES" NAME ="usp_Load_W_Tbl_Rebuild_Keys_Ratings" REUSABLE ="YES" TASKNAME ="cmd_ExecuteSP" TASKTYPE ="Command" TREAT_INPUTLINK_AS_AND ="YES">
+            <VALUEPAIR EXECORDER ="1" NAME ="RunSP" REVERSEASSIGNMENT ="NO" VALUE ="$$CommonScriptLocation&#x5c;execute_sp.pl &quot;usp_Load_W_Tbl_Rebuild_Keys_Ratings $$SiteID, $$TargetDir&quot; $$ScriptLogLocation"/>
+        </TASKINSTANCE>
+        <TASKINSTANCE DESCRIPTION ="" FAIL_PARENT_IF_INSTANCE_DID_NOT_RUN ="YES" FAIL_PARENT_IF_INSTANCE_FAILS ="YES" ISENABLED ="YES" NAME ="cmd_JobDetail_End" REUSABLE ="YES" TASKNAME ="cmd_JobDetail_End" TASKTYPE ="Command" TREAT_INPUTLINK_AS_AND ="YES">
+            <VALUEPAIR EXECORDER ="1" NAME ="Command" REVERSEASSIGNMENT ="NO" VALUE ="$$CommonScriptLocation&#x5c;execute_sp.pl &quot;usp_JobDetail_End 201, $$SiteId, 5, &apos;F_GamingRating&apos;&quot; $$ScriptLogLocation"/>
+        </TASKINSTANCE>
+        <TASKINSTANCE DESCRIPTION ="" FAIL_PARENT_IF_INSTANCE_DID_NOT_RUN ="YES" FAIL_PARENT_IF_INSTANCE_FAILS ="YES" ISENABLED ="YES" NAME ="cmd_JobDetail_Start" REUSABLE ="YES" TASKNAME ="cmd_JobDetail_Start" TASKTYPE ="Command" TREAT_INPUTLINK_AS_AND ="YES">
+            <VALUEPAIR EXECORDER ="1" NAME ="Command" REVERSEASSIGNMENT ="NO" VALUE ="$$CommonScriptLocation&#x5c;execute_sp.pl &quot;usp_JobDetail_Start 201, $$SiteId, 5&quot; $$ScriptLogLocation"/>
+        </TASKINSTANCE>
+        <TASKINSTANCE DESCRIPTION ="" FAIL_PARENT_IF_INSTANCE_DID_NOT_RUN ="NO" FAIL_PARENT_IF_INSTANCE_FAILS ="NO" ISENABLED ="YES" NAME ="usp_BatchUpdate_R_GamingRating" REUSABLE ="YES" TASKNAME ="cmd_ExecuteSP" TASKTYPE ="Command" TREAT_INPUTLINK_AS_AND ="YES">
+            <VALUEPAIR EXECORDER ="1" NAME ="RunSP" REVERSEASSIGNMENT ="NO" VALUE ="$$CommonScriptLocation&#x5c;execute_sp.pl &quot;usp_BatchUpdate_R_GamingRating $$TargetDir&quot; $$ScriptLogLocation"/>
+        </TASKINSTANCE>
+        <TASKINSTANCE DESCRIPTION ="" FAIL_PARENT_IF_INSTANCE_DID_NOT_RUN ="NO" FAIL_PARENT_IF_INSTANCE_FAILS ="YES" ISENABLED ="YES" NAME ="usp_Update_R_GamingRating" REUSABLE ="YES" TASKNAME ="cmd_ExecuteSP" TASKTYPE ="Command" TREAT_INPUTLINK_AS_AND ="YES">
+            <VALUEPAIR EXECORDER ="1" NAME ="RunSP" REVERSEASSIGNMENT ="NO" VALUE ="$$CommonScriptLocation&#x5c;execute_sp.pl &quot;usp_Update_R_GamingRating&quot; $$ScriptLogLocation"/>
+        </TASKINSTANCE>
+        <TASKINSTANCE DESCRIPTION ="" FAIL_PARENT_IF_INSTANCE_DID_NOT_RUN ="NO" FAIL_PARENT_IF_INSTANCE_FAILS ="YES" ISENABLED ="YES" NAME ="usp_BatchUpdate_W_Track_Void_Ratings" REUSABLE ="YES" TASKNAME ="cmd_ExecuteSP" TASKTYPE ="Command" TREAT_INPUTLINK_AS_AND ="YES">
+            <VALUEPAIR EXECORDER ="1" NAME ="RunSP" REVERSEASSIGNMENT ="NO" VALUE ="$$CommonScriptLocation&#x5c;execute_sp.pl &quot;usp_BatchUpdate_W_Track_Void_Ratings $$Property_no,$$SiteID&quot; $$ScriptLogLocation"/>
+        </TASKINSTANCE>
+        <WORKFLOWLINK CONDITION ="$usp_BatchUpdate_W_Track_Void_Ratings.ErrorCode=0" FROMTASK ="usp_BatchUpdate_W_Track_Void_Ratings" TOTASK ="s_m_GamingRating"/>
+        <WORKFLOWLINK CONDITION ="$s_m_GamingRating.ErrorCode = 0" FROMTASK ="s_m_GamingRating" TOTASK ="usp_BatchUpdate_F_GamingRating"/>
+        <WORKFLOWLINK CONDITION ="$usp_Update_R_GamingRating.ErrorCode = 0" FROMTASK ="usp_Update_R_GamingRating" TOTASK ="usp_BatchUpdate_W_EGM_Received_Keys_Rating"/>
+        <WORKFLOWLINK CONDITION ="$cmd_JobDetail_Start.ErrorCode = 0" FROMTASK ="cmd_JobDetail_Start" TOTASK ="usp_Load_S_GamingRating"/>
+        <WORKFLOWLINK CONDITION ="$usp_Update_R_GamingRating.ErrorCode= 0" FROMTASK ="usp_Update_R_GamingRating" TOTASK ="usp_Load_W_Tbl_Rebuild_Keys_Ratings"/>
+        <WORKFLOWLINK CONDITION ="$usp_Update_R_GamingRating.ErrorCode = 0" FROMTASK ="usp_Update_R_GamingRating" TOTASK ="cmd_JobDetail_End"/>
+        <WORKFLOWLINK CONDITION ="" FROMTASK ="Start" TOTASK ="cmd_JobDetail_Start"/>
+        <WORKFLOWLINK CONDITION ="$s_m_GamingRating.ErrorCode = 0" FROMTASK ="s_m_GamingRating" TOTASK ="usp_BatchUpdate_R_GamingRating"/>
+        <WORKFLOWLINK CONDITION ="$usp_BatchUpdate_R_GamingRating.ErrorCode = 0" FROMTASK ="usp_BatchUpdate_R_GamingRating" TOTASK ="usp_Update_R_GamingRating"/>
+        <WORKFLOWLINK CONDITION ="$usp_BatchUpdate_F_GamingRating.ErrorCode = 0" FROMTASK ="usp_BatchUpdate_F_GamingRating" TOTASK ="usp_Update_R_GamingRating"/>
+        <WORKFLOWLINK CONDITION ="$usp_Load_S_GamingRating.ErrorCode=0" FROMTASK ="usp_Load_S_GamingRating" TOTASK ="usp_BatchUpdate_W_Track_Void_Ratings"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task started" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$Start.StartTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task completed" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$Start.EndTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$Start.Status" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of the previous task that is not disabled" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$Start.PrevTaskStatus" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Error code for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$Start.ErrorCode" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="string" DEFAULTVALUE ="" DESCRIPTION ="Error message for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$Start.ErrorMsg" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task started" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$s_m_GamingRating.StartTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task completed" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$s_m_GamingRating.EndTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$s_m_GamingRating.Status" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of the previous task that is not disabled" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$s_m_GamingRating.PrevTaskStatus" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Error code for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$s_m_GamingRating.ErrorCode" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="string" DEFAULTVALUE ="" DESCRIPTION ="Error message for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$s_m_GamingRating.ErrorMsg" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Rows successfully read" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$s_m_GamingRating.SrcSuccessRows" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Rows failed to read" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$s_m_GamingRating.SrcFailedRows" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Rows successfully loaded" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$s_m_GamingRating.TgtSuccessRows" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Rows failed to load" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$s_m_GamingRating.TgtFailedRows" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Total number of transformation errors" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$s_m_GamingRating.TotalTransErrors" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="First error code" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$s_m_GamingRating.FirstErrorCode" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="string" DEFAULTVALUE ="" DESCRIPTION ="First error message" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$s_m_GamingRating.FirstErrorMsg" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task started" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_BatchUpdate_F_GamingRating.StartTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task completed" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_BatchUpdate_F_GamingRating.EndTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_BatchUpdate_F_GamingRating.Status" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of the previous task that is not disabled" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_BatchUpdate_F_GamingRating.PrevTaskStatus" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Error code for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_BatchUpdate_F_GamingRating.ErrorCode" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="string" DEFAULTVALUE ="" DESCRIPTION ="Error message for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_BatchUpdate_F_GamingRating.ErrorMsg" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task started" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_BatchUpdate_W_EGM_Received_Keys_Rating.StartTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task completed" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_BatchUpdate_W_EGM_Received_Keys_Rating.EndTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_BatchUpdate_W_EGM_Received_Keys_Rating.Status" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of the previous task that is not disabled" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_BatchUpdate_W_EGM_Received_Keys_Rating.PrevTaskStatus" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Error code for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_BatchUpdate_W_EGM_Received_Keys_Rating.ErrorCode" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="string" DEFAULTVALUE ="" DESCRIPTION ="Error message for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_BatchUpdate_W_EGM_Received_Keys_Rating.ErrorMsg" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task started" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_Load_S_GamingRating.StartTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task completed" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_Load_S_GamingRating.EndTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_Load_S_GamingRating.Status" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of the previous task that is not disabled" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_Load_S_GamingRating.PrevTaskStatus" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Error code for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_Load_S_GamingRating.ErrorCode" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="string" DEFAULTVALUE ="" DESCRIPTION ="Error message for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_Load_S_GamingRating.ErrorMsg" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task started" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_Load_W_Tbl_Rebuild_Keys_Ratings.StartTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task completed" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_Load_W_Tbl_Rebuild_Keys_Ratings.EndTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_Load_W_Tbl_Rebuild_Keys_Ratings.Status" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of the previous task that is not disabled" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_Load_W_Tbl_Rebuild_Keys_Ratings.PrevTaskStatus" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Error code for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_Load_W_Tbl_Rebuild_Keys_Ratings.ErrorCode" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="string" DEFAULTVALUE ="" DESCRIPTION ="Error message for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_Load_W_Tbl_Rebuild_Keys_Ratings.ErrorMsg" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task started" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_JobDetail_End.StartTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task completed" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_JobDetail_End.EndTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_JobDetail_End.Status" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of the previous task that is not disabled" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_JobDetail_End.PrevTaskStatus" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Error code for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_JobDetail_End.ErrorCode" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="string" DEFAULTVALUE ="" DESCRIPTION ="Error message for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_JobDetail_End.ErrorMsg" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task started" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_JobDetail_Start.StartTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task completed" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_JobDetail_Start.EndTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_JobDetail_Start.Status" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of the previous task that is not disabled" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_JobDetail_Start.PrevTaskStatus" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Error code for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_JobDetail_Start.ErrorCode" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="string" DEFAULTVALUE ="" DESCRIPTION ="Error message for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_JobDetail_Start.ErrorMsg" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task started" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_BatchUpdate_R_GamingRating.StartTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task completed" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_BatchUpdate_R_GamingRating.EndTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_BatchUpdate_R_GamingRating.Status" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of the previous task that is not disabled" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_BatchUpdate_R_GamingRating.PrevTaskStatus" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Error code for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_BatchUpdate_R_GamingRating.ErrorCode" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="string" DEFAULTVALUE ="" DESCRIPTION ="Error message for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_BatchUpdate_R_GamingRating.ErrorMsg" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task started" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_Update_R_GamingRating.StartTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task completed" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_Update_R_GamingRating.EndTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_Update_R_GamingRating.Status" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of the previous task that is not disabled" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_Update_R_GamingRating.PrevTaskStatus" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Error code for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_Update_R_GamingRating.ErrorCode" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="string" DEFAULTVALUE ="" DESCRIPTION ="Error message for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_Update_R_GamingRating.ErrorMsg" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task started" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_BatchUpdate_W_Track_Void_Ratings.StartTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task completed" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_BatchUpdate_W_Track_Void_Ratings.EndTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_BatchUpdate_W_Track_Void_Ratings.Status" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of the previous task that is not disabled" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_BatchUpdate_W_Track_Void_Ratings.PrevTaskStatus" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Error code for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_BatchUpdate_W_Track_Void_Ratings.ErrorCode" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="string" DEFAULTVALUE ="" DESCRIPTION ="Error message for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$usp_BatchUpdate_W_Track_Void_Ratings.ErrorMsg" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="nstring" DEFAULTVALUE ="" DESCRIPTION ="" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$$TargetDir" USERDEFINED ="YES"/>
+        <WORKFLOWVARIABLE DATATYPE ="nstring" DEFAULTVALUE ="" DESCRIPTION ="" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$$SiteID" USERDEFINED ="YES"/>
+        <WORKFLOWVARIABLE DATATYPE ="nstring" DEFAULTVALUE ="" DESCRIPTION ="" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$$SourceDir" USERDEFINED ="YES"/>
+        <WORKFLOWVARIABLE DATATYPE ="nstring" DEFAULTVALUE ="" DESCRIPTION ="" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$$Property_no" USERDEFINED ="YES"/>
+        <WORKFLOWVARIABLE DATATYPE ="nstring" DEFAULTVALUE ="" DESCRIPTION ="" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$$ScriptSectionName" USERDEFINED ="YES"/>
+        <WORKFLOWVARIABLE DATATYPE ="nstring" DEFAULTVALUE ="" DESCRIPTION ="" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$$ScriptLogLocation" USERDEFINED ="YES"/>
+        <WORKFLOWVARIABLE DATATYPE ="nstring" DEFAULTVALUE ="" DESCRIPTION ="" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$$PreScriptConfigLocation" USERDEFINED ="YES"/>
+        <WORKFLOWVARIABLE DATATYPE ="nstring" DEFAULTVALUE ="" DESCRIPTION ="" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$$PosScriptConfigLocation" USERDEFINED ="YES"/>
+        <WORKFLOWVARIABLE DATATYPE ="nstring" DEFAULTVALUE ="" DESCRIPTION ="" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$$CommonScriptLocation" USERDEFINED ="YES"/>
+        <ATTRIBUTE NAME ="Allow Concurrent Run" VALUE ="YES"/>
+        <METADATAEXTENSION DATATYPE ="STRING" DESCRIPTION ="Contains a history of changes to the worklet" DOMAINNAME ="User Defined Metadata Domain" ISCLIENTEDITABLE ="YES" ISCLIENTVISIBLE ="YES" ISREUSABLE ="NO" ISSHAREREAD ="NO" ISSHAREWRITE ="NO" MAXLENGTH ="65536" NAME ="Change History" VALUE ="[05/03/2021 LK] Modify to add procedure for Void Ratings&#xD;&#xA;[25/11/2010 Joan Zhang] added ETLJobDtlID" VENDORNAME ="INFORMATICA"/>
+    </WORKLET>
+    <TASK DESCRIPTION ="This task runs the update_w_gamingdate.pl script and requires two or more parameters, the first being the linkid to update, the second and subsequent being the linkids to reference when updating the W_GamingDate Table." NAME ="cmd_UpdateWGamingDate" REUSABLE ="YES" TYPE ="Command" VERSIONNUMBER ="17">
+        <ATTRIBUTE NAME ="Fail task if any command fails" VALUE ="YES"/>
+        <ATTRIBUTE NAME ="Recovery Strategy" VALUE ="Restart task"/>
+        <VALUEPAIR EXECORDER ="1" NAME ="Update W_GamingDate Table" REVERSEASSIGNMENT ="NO" VALUE ="$$CommonScriptLocation&#x5c;update_w_gamingdate.pl X Y $$ScriptLogLocation $$SiteID"/>
+    </TASK>
+    <TASK DESCRIPTION ="" NAME ="cmd_LoadStagingTable_EGM" REUSABLE ="YES" TYPE ="Command" VERSIONNUMBER ="4">
+        <ATTRIBUTE NAME ="Fail task if any command fails" VALUE ="YES"/>
+        <ATTRIBUTE NAME ="Recovery Strategy" VALUE ="Restart task"/>
+        <VALUEPAIR EXECORDER ="1" NAME ="Load of Staging Table EGM Data" REVERSEASSIGNMENT ="NO" VALUE ="D:&#x5c;CDW&#x5c;Scripts&#x5c;Staging_Load&#x5c;ratings_Staging_EGM_dailyload.bat &gt;&gt; D:&#x5c;CDW&#x5c;Logs&#x5c;ratings_staging_egm_dailyload.log"/>
+    </TASK>
+    <TASK DESCRIPTION ="This command task will create an indicator file which will be used to fire off a cognos 8 trigger. This will then execute any reports scheduled based on the trigger." NAME ="cmd_Create_Cognos_Triggers" REUSABLE ="YES" TYPE ="Command" VERSIONNUMBER ="6">
+        <ATTRIBUTE NAME ="Fail task if any command fails" VALUE ="NO"/>
+        <ATTRIBUTE NAME ="Recovery Strategy" VALUE ="Restart task"/>
+        <VALUEPAIR EXECORDER ="1" NAME ="Command1" REVERSEASSIGNMENT ="NO" VALUE ="echo &quot;trigger&quot; &gt; $$BITriggerDir/trigger_name.trg"/>
+    </TASK>
+    <WORKLET DESCRIPTION ="This worklet runs the transformation and load of the Ratings data from Syco, wkl_Rating_EGM and  wkl_Rating_TG and well as updating the W_GamingDate Table.&#xD;&#xA;&#xD;&#xA;Note by Stephen Tyler, DWS, 17 Aug 2005&#xD;&#xA;This worklet appears to do a pointless load to the staging table S_EGMRATING, ie understood this staging table has been replaced by S_GAMINGRATING.  No action taken at this point given proxmity to rollout.&#xD;&#xA;" ISVALID ="YES" NAME ="wkl_Ratings" REUSABLE ="YES" VERSIONNUMBER ="13">
+        <TASK DESCRIPTION ="" NAME ="cmd_StagingLoadCheck_EGM" REUSABLE ="NO" TYPE ="Command" VERSIONNUMBER ="9">
+            <ATTRIBUTE NAME ="Fail task if any command fails" VALUE ="YES"/>
+            <ATTRIBUTE NAME ="Recovery Strategy" VALUE ="Restart task"/>
+            <VALUEPAIR EXECORDER ="1" NAME ="Check Load of Staging Table EGM Data" REVERSEASSIGNMENT ="NO" VALUE ="$$StagingLoadLocation&#x5c;health_check.pl $$StagingLoadLocation&#x5c;health_check.cfg EGMRATINGS_$$ScriptSectionName $$ScriptLogLocation"/>
+        </TASK>
+        <TASK DESCRIPTION ="" NAME ="cmd_Create_ETL_Triggers" REUSABLE ="NO" TYPE ="Command" VERSIONNUMBER ="10">
+            <ATTRIBUTE NAME ="Fail task if any command fails" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Recovery Strategy" VALUE ="Fail task and continue workflow"/>
+            <VALUEPAIR EXECORDER ="1" NAME ="Syco Facts Trigger" REVERSEASSIGNMENT ="NO" VALUE ="echo &quot;trigger&quot; &gt; $$ETLTriggerDir/Ratings_End_Syco.trg"/>
+            <VALUEPAIR EXECORDER ="2" NAME ="EGM Facts Trigger" REVERSEASSIGNMENT ="NO" VALUE ="echo &quot;trigger&quot; &gt; $$ETLTriggerDir/Ratings_End_EGM.trg"/>
+        </TASK>
+        <TASK DESCRIPTION ="" NAME ="Start" REUSABLE ="NO" TYPE ="Start" VERSIONNUMBER ="9"/>
+        <TASK DESCRIPTION ="" NAME ="Asg_SiteFlags" REUSABLE ="NO" TYPE ="Assignment" VERSIONNUMBER ="9">
+            <ATTRIBUTE NAME ="Assignment Condition" VALUE =""/>
+            <VALUEPAIR EXECORDER ="1" NAME ="$$IsPerth" REVERSEASSIGNMENT ="NO" VALUE ="substr($$Property_no, 2, 3) = &apos;600&apos;"/>
+            <VALUEPAIR EXECORDER ="2" NAME ="$$IsMelbourne" REVERSEASSIGNMENT ="NO" VALUE ="substr($$Property_no, 2, 3) = &apos;400&apos;"/>
+            <VALUEPAIR EXECORDER ="3" NAME ="$$IsSydney" REVERSEASSIGNMENT ="NO" VALUE ="substr($$Property_no, 2, 3) = &apos;900&apos;"/>
+        </TASK>
+        <TASK DESCRIPTION ="" NAME ="evw_Conformed_Dimensions_End_FileWatch" REUSABLE ="NO" TYPE ="Event Wait" VERSIONNUMBER ="5">
+            <ATTRIBUTE NAME ="User Defined Event" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Event Name" VALUE =""/>
+            <ATTRIBUTE NAME ="Enable Past Events" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Filewatch name" VALUE ="$$ETLTriggerDir&#x5c;Conformed_Dimensions_End_Ratings.trg"/>
+            <ATTRIBUTE NAME ="Delete Filewatch file" VALUE ="NO"/>
+        </TASK>
+        <TASK DESCRIPTION ="" NAME ="evw_Conformed_Dimensions_FileDelete" REUSABLE ="NO" TYPE ="Event Wait" VERSIONNUMBER ="5">
+            <ATTRIBUTE NAME ="User Defined Event" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Event Name" VALUE =""/>
+            <ATTRIBUTE NAME ="Enable Past Events" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Filewatch name" VALUE ="$$ETLTriggerDir&#x5c;Conformed_Dimensions_End_Ratings.trg"/>
+            <ATTRIBUTE NAME ="Delete Filewatch file" VALUE ="YES"/>
+        </TASK>
+        <TASK DESCRIPTION ="" NAME ="evw_Jackpot_Configuration_End" REUSABLE ="NO" TYPE ="Event Wait" VERSIONNUMBER ="3">
+            <ATTRIBUTE NAME ="User Defined Event" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Event Name" VALUE =""/>
+            <ATTRIBUTE NAME ="Enable Past Events" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Filewatch name" VALUE ="$$ETLTriggerDir&#x5c;Jackpot_Configuration_End.trg"/>
+            <ATTRIBUTE NAME ="Delete Filewatch file" VALUE ="YES"/>
+        </TASK>
+        <TASK DESCRIPTION ="" NAME ="evw_VIP_Dimensions_End_FileWatch" REUSABLE ="NO" TYPE ="Event Wait" VERSIONNUMBER ="1">
+            <ATTRIBUTE NAME ="User Defined Event" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Event Name" VALUE =""/>
+            <ATTRIBUTE NAME ="Enable Past Events" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Filewatch name" VALUE ="$$ETLTriggerDir&#x5c;VIPDimensions_End_Ratings.trg"/>
+            <ATTRIBUTE NAME ="Delete Filewatch file" VALUE ="NO"/>
+        </TASK>
+        <TASK DESCRIPTION ="" NAME ="evw_VIP_Dimensions_End_FileDelete" REUSABLE ="NO" TYPE ="Event Wait" VERSIONNUMBER ="1">
+            <ATTRIBUTE NAME ="User Defined Event" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Event Name" VALUE =""/>
+            <ATTRIBUTE NAME ="Enable Past Events" VALUE ="NO"/>
+            <ATTRIBUTE NAME ="Filewatch name" VALUE ="$$ETLTriggerDir&#x5c;VIPDimensions_End_Ratings.trg"/>
+            <ATTRIBUTE NAME ="Delete Filewatch file" VALUE ="YES"/>
+        </TASK>
+        <TASKINSTANCE DESCRIPTION ="" FAIL_PARENT_IF_INSTANCE_DID_NOT_RUN ="NO" FAIL_PARENT_IF_INSTANCE_FAILS ="YES" ISENABLED ="YES" NAME ="cmd_StagingLoadCheck_EGM" REUSABLE ="NO" TASKNAME ="cmd_StagingLoadCheck_EGM" TASKTYPE ="Command" TREAT_INPUTLINK_AS_AND ="YES"/>
+        <TASKINSTANCE DESCRIPTION ="" FAIL_PARENT_IF_INSTANCE_DID_NOT_RUN ="NO" FAIL_PARENT_IF_INSTANCE_FAILS ="NO" ISENABLED ="YES" NAME ="cmd_Create_ETL_Triggers" REUSABLE ="NO" TASKNAME ="cmd_Create_ETL_Triggers" TASKTYPE ="Command" TREAT_INPUTLINK_AS_AND ="YES"/>
+        <TASKINSTANCE DESCRIPTION ="" FAIL_PARENT_IF_INSTANCE_DID_NOT_RUN ="NO" FAIL_PARENT_IF_INSTANCE_FAILS ="YES" ISENABLED ="YES" NAME ="cmd_Create_Cognos_Trigger_GamingRatings" REUSABLE ="YES" TASKNAME ="cmd_Create_Cognos_Triggers" TASKTYPE ="Command" TREAT_INPUTLINK_AS_AND ="YES">
+            <ATTRIBUTE NAME ="Fail task if any command fails" VALUE ="YES"/>
+            <VALUEPAIR EXECORDER ="1" NAME ="Command1" REVERSEASSIGNMENT ="NO" VALUE ="echo &quot;trigger&quot; &gt; $$ReportTriggerDir/$$BITriggerPrefixGamingRatings.trg"/>
+        </TASKINSTANCE>
+        <TASKINSTANCE DESCRIPTION ="" FAIL_PARENT_IF_INSTANCE_DID_NOT_RUN ="NO" FAIL_PARENT_IF_INSTANCE_FAILS ="YES" ISENABLED ="YES" NAME ="cmd_LoadStagingTable_EGM" REUSABLE ="YES" TASKNAME ="cmd_LoadStagingTable_EGM" TASKTYPE ="Command" TREAT_INPUTLINK_AS_AND ="YES">
+            <VALUEPAIR EXECORDER ="1" NAME ="Load of Staging Table EGM Data" REVERSEASSIGNMENT ="NO" VALUE ="$$CommonScriptLocation&#x5c;execute_sp.pl &quot;usp_Load_S_EGMRATING $$Property_no, $$SourceDir&quot; $$ScriptLogLocation"/>
+        </TASKINSTANCE>
+        <TASKINSTANCE DESCRIPTION ="" ISENABLED ="YES" NAME ="Start" REUSABLE ="NO" TASKNAME ="Start" TASKTYPE ="Start"/>
+        <TASKINSTANCE DESCRIPTION ="Set the input links to &apos;OR&apos; to allow Burswood to skip the EGM Staging Check." FAIL_PARENT_IF_INSTANCE_DID_NOT_RUN ="NO" FAIL_PARENT_IF_INSTANCE_FAILS ="YES" ISENABLED ="YES" NAME ="wkl_Rating" REUSABLE ="YES" TASKNAME ="wkl_Rating" TASKTYPE ="Worklet" TREAT_INPUTLINK_AS_AND ="NO"/>
+        <TASKINSTANCE DESCRIPTION ="" FAIL_PARENT_IF_INSTANCE_DID_NOT_RUN ="NO" FAIL_PARENT_IF_INSTANCE_FAILS ="YES" ISENABLED ="YES" NAME ="cmd_UpdateWGamingDate6" REUSABLE ="YES" TASKNAME ="cmd_UpdateWGamingDate" TASKTYPE ="Command" TREAT_INPUTLINK_AS_AND ="YES">
+            <VALUEPAIR EXECORDER ="1" NAME ="Update W_GamingDate Table" REVERSEASSIGNMENT ="NO" VALUE ="$$CommonScriptLocation&#x5c;update_w_gamingdate.pl 6 5 $$ScriptLogLocation $$SiteID"/>
+        </TASKINSTANCE>
+        <TASKINSTANCE DESCRIPTION ="" FAIL_PARENT_IF_INSTANCE_DID_NOT_RUN ="YES" FAIL_PARENT_IF_INSTANCE_FAILS ="YES" ISENABLED ="YES" NAME ="cmd_UpdateWGamingDate5" REUSABLE ="YES" TASKNAME ="cmd_UpdateWGamingDate" TASKTYPE ="Command" TREAT_INPUTLINK_AS_AND ="YES">
+            <VALUEPAIR EXECORDER ="1" NAME ="Update W_GamingDate Table" REVERSEASSIGNMENT ="NO" VALUE ="$$CommonScriptLocation&#x5c;update_w_gamingdate.pl 5 26 12 $$ScriptLogLocation $$SiteID"/>
+        </TASKINSTANCE>
+        <TASKINSTANCE DESCRIPTION ="" FAIL_PARENT_IF_INSTANCE_DID_NOT_RUN ="YES" FAIL_PARENT_IF_INSTANCE_FAILS ="YES" ISENABLED ="YES" NAME ="Asg_SiteFlags" REUSABLE ="NO" TASKNAME ="Asg_SiteFlags" TASKTYPE ="Assignment" TREAT_INPUTLINK_AS_AND ="YES"/>
+        <TASKINSTANCE DESCRIPTION ="" FAIL_PARENT_IF_INSTANCE_DID_NOT_RUN ="YES" FAIL_PARENT_IF_INSTANCE_FAILS ="YES" ISENABLED ="YES" NAME ="evw_Conformed_Dimensions_End_FileWatch" REUSABLE ="NO" TASKNAME ="evw_Conformed_Dimensions_End_FileWatch" TASKTYPE ="Event Wait" TREAT_INPUTLINK_AS_AND ="YES"/>
+        <TASKINSTANCE DESCRIPTION ="" FAIL_PARENT_IF_INSTANCE_DID_NOT_RUN ="NO" FAIL_PARENT_IF_INSTANCE_FAILS ="YES" ISENABLED ="YES" NAME ="evw_Conformed_Dimensions_FileDelete" REUSABLE ="NO" TASKNAME ="evw_Conformed_Dimensions_FileDelete" TASKTYPE ="Event Wait" TREAT_INPUTLINK_AS_AND ="YES"/>
+        <TASKINSTANCE DESCRIPTION ="" FAIL_PARENT_IF_INSTANCE_DID_NOT_RUN ="NO" FAIL_PARENT_IF_INSTANCE_FAILS ="YES" ISENABLED ="YES" NAME ="evw_Jackpot_Configuration_End" REUSABLE ="NO" TASKNAME ="evw_Jackpot_Configuration_End" TASKTYPE ="Event Wait" TREAT_INPUTLINK_AS_AND ="NO"/>
+        <TASKINSTANCE DESCRIPTION ="" FAIL_PARENT_IF_INSTANCE_DID_NOT_RUN ="YES" FAIL_PARENT_IF_INSTANCE_FAILS ="YES" ISENABLED ="YES" NAME ="evw_VIP_Dimensions_End_FileWatch" REUSABLE ="NO" TASKNAME ="evw_VIP_Dimensions_End_FileWatch" TASKTYPE ="Event Wait" TREAT_INPUTLINK_AS_AND ="YES"/>
+        <TASKINSTANCE DESCRIPTION ="" FAIL_PARENT_IF_INSTANCE_DID_NOT_RUN ="YES" FAIL_PARENT_IF_INSTANCE_FAILS ="YES" ISENABLED ="YES" NAME ="evw_VIP_Dimensions_End_FileDelete" REUSABLE ="NO" TASKNAME ="evw_VIP_Dimensions_End_FileDelete" TASKTYPE ="Event Wait" TREAT_INPUTLINK_AS_AND ="YES"/>
+        <WORKFLOWLINK CONDITION ="$cmd_LoadStagingTable_EGM.ErrorCode = 0" FROMTASK ="cmd_LoadStagingTable_EGM" TOTASK ="cmd_StagingLoadCheck_EGM"/>
+        <WORKFLOWLINK CONDITION ="$cmd_UpdateWGamingDate6.ErrorCode = 0" FROMTASK ="cmd_UpdateWGamingDate6" TOTASK ="cmd_Create_ETL_Triggers"/>
+        <WORKFLOWLINK CONDITION ="$cmd_UpdateWGamingDate6.ErrorCode = 0" FROMTASK ="cmd_UpdateWGamingDate6" TOTASK ="cmd_Create_Cognos_Trigger_GamingRatings"/>
+        <WORKFLOWLINK CONDITION ="-- Skip EGM Staging load for non-crown sites.&#xD;&#xA;$cmd_UpdateWGamingDate5.ErrorCode = 0 AND $$IsMelbourne" FROMTASK ="cmd_UpdateWGamingDate5" TOTASK ="cmd_LoadStagingTable_EGM"/>
+        <WORKFLOWLINK CONDITION ="$evw_Jackpot_Configuration_End.ErrorCode = 0" FROMTASK ="evw_Jackpot_Configuration_End" TOTASK ="wkl_Rating"/>
+        <WORKFLOWLINK CONDITION ="$cmd_UpdateWGamingDate5.ErrorCode=0 and $$IsSydney" FROMTASK ="cmd_UpdateWGamingDate5" TOTASK ="wkl_Rating"/>
+        <WORKFLOWLINK CONDITION ="$wkl_Rating.ErrorCode = 0" FROMTASK ="wkl_Rating" TOTASK ="cmd_UpdateWGamingDate6"/>
+        <WORKFLOWLINK CONDITION ="$Asg_SiteFlags.ErrorCode = 0" FROMTASK ="Asg_SiteFlags" TOTASK ="cmd_UpdateWGamingDate5"/>
+        <WORKFLOWLINK CONDITION ="$evw_Conformed_Dimensions_End_FileWatch.ErrorCode = 0" FROMTASK ="evw_Conformed_Dimensions_End_FileWatch" TOTASK ="Asg_SiteFlags"/>
+        <WORKFLOWLINK CONDITION ="$evw_VIP_Dimensions_End_FileWatch.ErrorCode = 0" FROMTASK ="evw_VIP_Dimensions_End_FileWatch" TOTASK ="Asg_SiteFlags"/>
+        <WORKFLOWLINK CONDITION ="" FROMTASK ="Start" TOTASK ="evw_Conformed_Dimensions_End_FileWatch"/>
+        <WORKFLOWLINK CONDITION ="$cmd_UpdateWGamingDate6.ErrorCode = 0" FROMTASK ="cmd_UpdateWGamingDate6" TOTASK ="evw_Conformed_Dimensions_FileDelete"/>
+        <WORKFLOWLINK CONDITION ="$cmd_StagingLoadCheck_EGM.ErrorCode = 0" FROMTASK ="cmd_StagingLoadCheck_EGM" TOTASK ="evw_Jackpot_Configuration_End"/>
+        <WORKFLOWLINK CONDITION ="-- Skip EGM Staging Load for non-Crown sites&#xD;&#xA;$cmd_UpdateWGamingDate5.ErrorCode = 0 AND --NOT $$IsMelbourne&#xD;&#xA;$$IsPerth" FROMTASK ="cmd_UpdateWGamingDate5" TOTASK ="evw_Jackpot_Configuration_End"/>
+        <WORKFLOWLINK CONDITION ="" FROMTASK ="Start" TOTASK ="evw_VIP_Dimensions_End_FileWatch"/>
+        <WORKFLOWLINK CONDITION ="$cmd_UpdateWGamingDate6.ErrorCode = 0" FROMTASK ="cmd_UpdateWGamingDate6" TOTASK ="evw_VIP_Dimensions_End_FileDelete"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task started" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_StagingLoadCheck_EGM.StartTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task completed" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_StagingLoadCheck_EGM.EndTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_StagingLoadCheck_EGM.Status" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of the previous task that is not disabled" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_StagingLoadCheck_EGM.PrevTaskStatus" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Error code for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_StagingLoadCheck_EGM.ErrorCode" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="string" DEFAULTVALUE ="" DESCRIPTION ="Error message for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_StagingLoadCheck_EGM.ErrorMsg" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task started" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_Create_ETL_Triggers.StartTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task completed" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_Create_ETL_Triggers.EndTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_Create_ETL_Triggers.Status" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of the previous task that is not disabled" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_Create_ETL_Triggers.PrevTaskStatus" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Error code for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_Create_ETL_Triggers.ErrorCode" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="string" DEFAULTVALUE ="" DESCRIPTION ="Error message for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_Create_ETL_Triggers.ErrorMsg" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task started" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_Create_Cognos_Trigger_GamingRatings.StartTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task completed" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_Create_Cognos_Trigger_GamingRatings.EndTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_Create_Cognos_Trigger_GamingRatings.Status" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of the previous task that is not disabled" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_Create_Cognos_Trigger_GamingRatings.PrevTaskStatus" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Error code for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_Create_Cognos_Trigger_GamingRatings.ErrorCode" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="string" DEFAULTVALUE ="" DESCRIPTION ="Error message for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_Create_Cognos_Trigger_GamingRatings.ErrorMsg" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task started" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_LoadStagingTable_EGM.StartTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task completed" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_LoadStagingTable_EGM.EndTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_LoadStagingTable_EGM.Status" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of the previous task that is not disabled" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_LoadStagingTable_EGM.PrevTaskStatus" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Error code for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_LoadStagingTable_EGM.ErrorCode" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="string" DEFAULTVALUE ="" DESCRIPTION ="Error message for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_LoadStagingTable_EGM.ErrorMsg" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task started" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$Start.StartTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task completed" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$Start.EndTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$Start.Status" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of the previous task that is not disabled" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$Start.PrevTaskStatus" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Error code for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$Start.ErrorCode" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="string" DEFAULTVALUE ="" DESCRIPTION ="Error message for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$Start.ErrorMsg" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task started" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$wkl_Rating.StartTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task completed" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$wkl_Rating.EndTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$wkl_Rating.Status" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of the previous task that is not disabled" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$wkl_Rating.PrevTaskStatus" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Error code for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$wkl_Rating.ErrorCode" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="string" DEFAULTVALUE ="" DESCRIPTION ="Error message for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$wkl_Rating.ErrorMsg" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task started" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_UpdateWGamingDate6.StartTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task completed" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_UpdateWGamingDate6.EndTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_UpdateWGamingDate6.Status" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of the previous task that is not disabled" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_UpdateWGamingDate6.PrevTaskStatus" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Error code for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_UpdateWGamingDate6.ErrorCode" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="string" DEFAULTVALUE ="" DESCRIPTION ="Error message for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_UpdateWGamingDate6.ErrorMsg" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task started" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_UpdateWGamingDate5.StartTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task completed" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_UpdateWGamingDate5.EndTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_UpdateWGamingDate5.Status" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of the previous task that is not disabled" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_UpdateWGamingDate5.PrevTaskStatus" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Error code for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_UpdateWGamingDate5.ErrorCode" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="string" DEFAULTVALUE ="" DESCRIPTION ="Error message for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$cmd_UpdateWGamingDate5.ErrorMsg" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task started" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$Asg_SiteFlags.StartTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task completed" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$Asg_SiteFlags.EndTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$Asg_SiteFlags.Status" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of the previous task that is not disabled" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$Asg_SiteFlags.PrevTaskStatus" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Error code for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$Asg_SiteFlags.ErrorCode" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="string" DEFAULTVALUE ="" DESCRIPTION ="Error message for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$Asg_SiteFlags.ErrorMsg" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task started" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$evw_Conformed_Dimensions_End_FileWatch.StartTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task completed" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$evw_Conformed_Dimensions_End_FileWatch.EndTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$evw_Conformed_Dimensions_End_FileWatch.Status" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of the previous task that is not disabled" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$evw_Conformed_Dimensions_End_FileWatch.PrevTaskStatus" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Error code for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$evw_Conformed_Dimensions_End_FileWatch.ErrorCode" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="string" DEFAULTVALUE ="" DESCRIPTION ="Error message for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$evw_Conformed_Dimensions_End_FileWatch.ErrorMsg" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task started" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$evw_Conformed_Dimensions_FileDelete.StartTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task completed" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$evw_Conformed_Dimensions_FileDelete.EndTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$evw_Conformed_Dimensions_FileDelete.Status" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of the previous task that is not disabled" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$evw_Conformed_Dimensions_FileDelete.PrevTaskStatus" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Error code for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$evw_Conformed_Dimensions_FileDelete.ErrorCode" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="string" DEFAULTVALUE ="" DESCRIPTION ="Error message for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$evw_Conformed_Dimensions_FileDelete.ErrorMsg" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task started" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$evw_Jackpot_Configuration_End.StartTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task completed" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$evw_Jackpot_Configuration_End.EndTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$evw_Jackpot_Configuration_End.Status" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of the previous task that is not disabled" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$evw_Jackpot_Configuration_End.PrevTaskStatus" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Error code for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$evw_Jackpot_Configuration_End.ErrorCode" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="string" DEFAULTVALUE ="" DESCRIPTION ="Error message for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$evw_Jackpot_Configuration_End.ErrorMsg" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task started" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$evw_VIP_Dimensions_End_FileWatch.StartTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task completed" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$evw_VIP_Dimensions_End_FileWatch.EndTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$evw_VIP_Dimensions_End_FileWatch.Status" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of the previous task that is not disabled" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$evw_VIP_Dimensions_End_FileWatch.PrevTaskStatus" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Error code for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$evw_VIP_Dimensions_End_FileWatch.ErrorCode" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="string" DEFAULTVALUE ="" DESCRIPTION ="Error message for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$evw_VIP_Dimensions_End_FileWatch.ErrorMsg" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task started" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$evw_VIP_Dimensions_End_FileDelete.StartTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task completed" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$evw_VIP_Dimensions_End_FileDelete.EndTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$evw_VIP_Dimensions_End_FileDelete.Status" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of the previous task that is not disabled" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$evw_VIP_Dimensions_End_FileDelete.PrevTaskStatus" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Error code for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$evw_VIP_Dimensions_End_FileDelete.ErrorCode" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="string" DEFAULTVALUE ="" DESCRIPTION ="Error message for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$evw_VIP_Dimensions_End_FileDelete.ErrorMsg" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="nstring" DEFAULTVALUE ="" DESCRIPTION ="" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$$SourceDir" USERDEFINED ="YES"/>
+        <WORKFLOWVARIABLE DATATYPE ="nstring" DEFAULTVALUE ="" DESCRIPTION ="" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$$StagingLoadLocation" USERDEFINED ="YES"/>
+        <WORKFLOWVARIABLE DATATYPE ="nstring" DEFAULTVALUE ="" DESCRIPTION ="" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$$Property_no" USERDEFINED ="YES"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$$IsPerth" USERDEFINED ="YES"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$$IsMelbourne" USERDEFINED ="YES"/>
+        <WORKFLOWVARIABLE DATATYPE ="nstring" DEFAULTVALUE ="D:&#x5c;CDW&#x5c;ETLTriggers&#x5c;Melbourne" DESCRIPTION ="" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$$ETLTriggerDir" USERDEFINED ="YES"/>
+        <WORKFLOWVARIABLE DATATYPE ="nstring" DEFAULTVALUE ="D:&#x5c;CDW&#x5c;BITriggers&#x5c;Melbourne" DESCRIPTION ="" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$$ReportTriggerDir" USERDEFINED ="YES"/>
+        <WORKFLOWVARIABLE DATATYPE ="nstring" DEFAULTVALUE ="" DESCRIPTION ="" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$$ScriptSectionName" USERDEFINED ="YES"/>
+        <WORKFLOWVARIABLE DATATYPE ="nstring" DEFAULTVALUE ="" DESCRIPTION ="" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$$ScriptLogLocation" USERDEFINED ="YES"/>
+        <WORKFLOWVARIABLE DATATYPE ="nstring" DEFAULTVALUE ="" DESCRIPTION ="" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$$PreScriptConfigLocation" USERDEFINED ="YES"/>
+        <WORKFLOWVARIABLE DATATYPE ="nstring" DEFAULTVALUE ="" DESCRIPTION ="" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$$PosScriptConfigLocation" USERDEFINED ="YES"/>
+        <WORKFLOWVARIABLE DATATYPE ="nstring" DEFAULTVALUE ="" DESCRIPTION ="" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$$CommonScriptLocation" USERDEFINED ="YES"/>
+        <WORKFLOWVARIABLE DATATYPE ="nstring" DEFAULTVALUE ="" DESCRIPTION ="" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$$BITriggerPrefix" USERDEFINED ="YES"/>
+        <WORKFLOWVARIABLE DATATYPE ="nstring" DEFAULTVALUE ="" DESCRIPTION ="" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$$SiteID" USERDEFINED ="YES"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$$IsSydney" USERDEFINED ="YES"/>
+        <ATTRIBUTE NAME ="Allow Concurrent Run" VALUE ="YES"/>
+        <METADATAEXTENSION DATATYPE ="STRING" DESCRIPTION ="Contains a history of changes to the worklet" DOMAINNAME ="User Defined Metadata Domain" ISCLIENTEDITABLE ="YES" ISCLIENTVISIBLE ="YES" ISREUSABLE ="NO" ISSHAREREAD ="NO" ISSHAREWRITE ="NO" MAXLENGTH ="65536" NAME ="Change History" VALUE ="[14/01/2019 LK] Modify for Perth to wait for Jackpot configuration End.&#xD;&#xA;[21/07/2016 JZ] added waiting for Jackpot configuration end&#xD;&#xA;&#xD;&#xA;[27/08/2015 RC] Modify for POS to start after Syco Dimension.  Thus removing the Trigger Creation from this worklet.&#xD;&#xA;&#xD;&#xA;[18/09/2012 Joan Zhang] modified it for Cognos 10 migration" VENDORNAME ="INFORMATICA"/>
+    </WORKLET>
+    <SCHEDULER DESCRIPTION ="" NAME ="Scheduler_Run_Continuously" REUSABLE ="YES" VERSIONNUMBER ="9">
+        <SCHEDULEINFO SCHEDULETYPE ="CONTINUOUS"/>
+    </SCHEDULER>
+    <WORKFLOW DESCRIPTION ="" ISENABLED ="YES" ISRUNNABLESERVICE ="NO" ISSERVICE ="NO" ISVALID ="YES" NAME ="wkf_MEL_DLD_Syco_Ratings" REUSABLE_SCHEDULER ="YES" SCHEDULERNAME ="Scheduler_Run_Continuously" SERVERNAME ="PCIS_MEL_PROD" SERVER_DOMAINNAME ="DOM_PROD" SUSPEND_ON_ERROR ="YES" TASKS_MUST_RUN_ON_SERVER ="NO" VERSIONNUMBER ="5">
+        <TASK DESCRIPTION ="" NAME ="Start" REUSABLE ="NO" TYPE ="Start" VERSIONNUMBER ="3"/>
+        <TASKINSTANCE DESCRIPTION ="" ISENABLED ="YES" NAME ="Start" REUSABLE ="NO" TASKNAME ="Start" TASKTYPE ="Start"/>
+        <TASKINSTANCE DESCRIPTION ="" FAIL_PARENT_IF_INSTANCE_DID_NOT_RUN ="NO" FAIL_PARENT_IF_INSTANCE_FAILS ="NO" ISENABLED ="YES" NAME ="wkl_Ratings" REUSABLE ="YES" TASKNAME ="wkl_Ratings" TASKTYPE ="Worklet" TREAT_INPUTLINK_AS_AND ="YES"/>
+        <WORKFLOWLINK CONDITION ="" FROMTASK ="Start" TOTASK ="wkl_Ratings"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task started" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$Start.StartTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task completed" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$Start.EndTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$Start.Status" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of the previous task that is not disabled" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$Start.PrevTaskStatus" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Error code for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$Start.ErrorCode" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="string" DEFAULTVALUE ="" DESCRIPTION ="Error message for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$Start.ErrorMsg" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task started" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$wkl_Ratings.StartTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="date/time" DEFAULTVALUE ="" DESCRIPTION ="The time this task completed" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$wkl_Ratings.EndTime" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$wkl_Ratings.Status" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Status of the previous task that is not disabled" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$wkl_Ratings.PrevTaskStatus" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="Error code for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$wkl_Ratings.ErrorCode" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="string" DEFAULTVALUE ="" DESCRIPTION ="Error message for this task&apos;s execution" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$wkl_Ratings.ErrorMsg" USERDEFINED ="NO"/>
+        <WORKFLOWVARIABLE DATATYPE ="integer" DEFAULTVALUE ="" DESCRIPTION ="" ISNULL ="NO" ISPERSISTENT ="NO" NAME ="$$SiteID" USERDEFINED ="YES"/>
+        <ATTRIBUTE NAME ="Parameter Filename" VALUE ="D:&#x5c;CDW&#x5c;Scripts&#x5c;InformaticaParameter&#x5c;Melbourne.para"/>
+        <ATTRIBUTE NAME ="Write Backward Compatible Workflow Log File" VALUE ="YES"/>
+        <ATTRIBUTE NAME ="Workflow Log File Name" VALUE ="wkf_Syco_Ratings.log"/>
+        <ATTRIBUTE NAME ="Workflow Log File Directory" VALUE ="$PMWorkflowLogDir&#x5c;"/>
+        <ATTRIBUTE NAME ="Save Workflow log by" VALUE ="By timestamp"/>
+        <ATTRIBUTE NAME ="Save workflow log for these runs" VALUE ="0"/>
+        <ATTRIBUTE NAME ="Service Name" VALUE =""/>
+        <ATTRIBUTE NAME ="Service Timeout" VALUE ="0"/>
+        <ATTRIBUTE NAME ="Is Service Visible" VALUE ="NO"/>
+        <ATTRIBUTE NAME ="Is Service Protected" VALUE ="NO"/>
+        <ATTRIBUTE NAME ="Fail task after wait time" VALUE ="0"/>
+        <ATTRIBUTE NAME ="Enable HA recovery" VALUE ="NO"/>
+        <ATTRIBUTE NAME ="Automatically recover terminated tasks" VALUE ="NO"/>
+        <ATTRIBUTE NAME ="Service Level Name" VALUE ="Default"/>
+        <ATTRIBUTE NAME ="Allow concurrent run with unique run instance name" VALUE ="NO"/>
+        <ATTRIBUTE NAME ="Allow concurrent run with same run instance name" VALUE ="NO"/>
+        <ATTRIBUTE NAME ="Maximum number of concurrent runs" VALUE ="0"/>
+        <ATTRIBUTE NAME ="Assigned Web Services Hubs" VALUE =""/>
+        <ATTRIBUTE NAME ="Maximum number of concurrent runs per Hub" VALUE ="1000"/>
+        <ATTRIBUTE NAME ="Expected Service Time" VALUE ="1"/>
+        <METADATAEXTENSION COMPONENTVERSION ="1000000" DATATYPE ="STRING" DESCRIPTION ="" DOMAINNAME ="User Defined Metadata Domain" ISCLIENTEDITABLE ="YES" ISCLIENTVISIBLE ="YES" ISREUSABLE ="NO" ISSHAREREAD ="NO" ISSHAREWRITE ="NO" MAXLENGTH ="256" NAME ="Extension" VALUE ="[09/10/2018 Jonathan Lee] Remove External Ratings from SYCO&#xD;&#xA;&#xD;&#xA;[30/06/2016 Rizlane Cataulin] Modified for Loading External Ratings from SYCO" VENDORNAME ="INFORMATICA"/>
+    </WORKFLOW>
+</FOLDER>
+</REPOSITORY>
+</POWERMART>
