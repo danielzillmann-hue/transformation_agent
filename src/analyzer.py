@@ -10,12 +10,17 @@ class AnalysisEngine:
     def __init__(self, project_id="gcp-sandpit-intelia"):
         self.llm_client = LLMClient(project_id)
 
-    def analyze(self, files):
+    def analyze(self, files, status_callback=None):
         """Analyzes the provided files."""
         results = {}
-        for blob in files:
+        total_files = len(files)
+        
+        for idx, blob in enumerate(files, 1):
             file_type = self._categorize_file(blob.name)
             logger.info(f"Analyzing {blob.name} as {file_type}")
+            
+            if status_callback:
+                status_callback("analysis", f"Analyzing file {idx}/{total_files}: {blob.name}", idx, total_files)
             
             try:
                 content = blob.download_as_text()
@@ -42,6 +47,10 @@ class AnalysisEngine:
                 "type": file_type,
                 "analysis": analysis_result
             }
+        
+        if status_callback:
+            status_callback("analysis", f"Analysis complete: {len(results)} files processed", total_files, total_files)
+        
         return results
 
     def _categorize_file(self, filename):

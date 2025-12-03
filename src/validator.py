@@ -14,7 +14,7 @@ class ValidationEngine:
         self.llm_client = LLMClient(project_id)
         os.makedirs(output_dir, exist_ok=True)
 
-    def validate(self, analysis_results):
+    def validate(self, analysis_results, status_callback=None):
         """Generates validation test definitions from analysis results.
 
         This initial implementation does not execute tests against Sybase/BigQuery.
@@ -22,6 +22,9 @@ class ValidationEngine:
         that can later be wired into automated execution.
         """
         logger.info("Starting validation & test generation...")
+        
+        if status_callback:
+            status_callback("validation", "Generating validation test cases...", 1, 3)
 
         test_definitions = {}
 
@@ -64,7 +67,14 @@ class ValidationEngine:
                 logger.warning(f"Failed to parse validation tests for {filename}: {e}")
                 continue
 
+        if status_callback:
+            status_callback("validation", "Saving validation results...", 2, 3)
+        
         self._save_results(test_definitions)
+        
+        if status_callback:
+            status_callback("validation", "Generating validation report...", 3, 3)
+        
         self._generate_report(test_definitions)
 
         logger.info("Validation & test generation complete.")

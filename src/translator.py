@@ -52,6 +52,10 @@ class SchemaTranslator:
         # Cache for LLM-detected SCD types to avoid repeated calls
         self._scd_type_cache = {}
         
+        # Control whether to use LLM for SCD detection (can be disabled for performance)
+        # Set via environment variable: SCD_DETECTION_USE_LLM=false to disable
+        self._use_llm_for_scd = os.getenv("SCD_DETECTION_USE_LLM", "true").lower() != "false"
+        
         # Sybase to BigQuery type mapping (built-in defaults)
         self.type_mappings = {
             "INT": "INT64",
@@ -107,9 +111,12 @@ class SchemaTranslator:
                     path,
                 )
 
-    def translate(self, analysis_results, categorization_results):
+    def translate(self, analysis_results, categorization_results, status_callback=None):
         """Translates Sybase schemas to BigQuery Dataform project."""
         logger.info("Starting schema translation...")
+        
+        if status_callback:
+            status_callback("translation", "Creating Dataform project structure...", 1, 4)
         
         # Create Dataform project structure
         self._create_dataform_structure()
@@ -118,7 +125,15 @@ class SchemaTranslator:
         domains = categorization_results.get("domains", [])
         categorizations = categorization_results.get("categorizations", {})
         
+        # Count tables for progress
+        table_files = [f for f, d in analysis_results.items() if 'table_name' in d.get('analysis', '')]
+        total_tables = len(table_files)
+        
+        if status_callback:
+            status_callback("translation", f"Translating {total_tables} tables to BigQuery...", 2, 4)
+        
         # Translate Sybase tables
+        translated_count = 0
         for filename, data in analysis_results.items():
             analysis = data.get('analysis', '')
             if 'table_name' not in analysis:
@@ -138,7 +153,11 @@ class SchemaTranslator:
                 if not table_name:
                     continue
                 
+                translated_count += 1
                 logger.info(f"Translating {table_name}...")
+                
+                if status_callback:
+                    status_callback("translation", f"Translating table {translated_count}/{total_tables}: {table_name}", translated_count, total_tables)
                 
                 # Determine domain and dataset
                 domain = self._get_table_domain(table_name, categorizations, domains)
@@ -151,11 +170,17 @@ class SchemaTranslator:
                 logger.warning(f"Failed to translate {filename}: {e}")
                 continue
         
+        if status_callback:
+            status_callback("translation", "Converting Informatica mappings...", 3, 4)
+        
         # Convert Informatica transformations
         logger.info("Converting Informatica transformations...")
         from src.informatica_converter import InformaticaConverter
         informatica_converter = InformaticaConverter(output_dir=self.output_dir)
         informatica_converter.convert_informatica_mappings(analysis_results, categorization_results)
+        
+        if status_callback:
+            status_callback("translation", f"Translation complete: {translated_count} tables processed", 4, 4)
         
         logger.info("Schema translation complete.")
 
@@ -557,22 +582,80 @@ module.exports = { mapSybaseType };
             logger.warning(f"LLM SCD detection failed for {table_name}: {e}. Using fallback detection.")
             return None
 
+    def _detect_scd_type_heuristic(self, table_name, columns, domain):
+        """Uses heuristics to detect SCD type without LLM (fast fallback).
+        
+        Looks for common patterns in column names that indicate SCD Type 2.
+        """
+        table_lower = table_name.lower()
+        
+        # Dimension table naming patterns that often need SCD Type 2
+        scd2_table_patterns = [
+            r"^d_",           # Dimension prefix
+            r"^dim_",
+            r"_dim$",
+            r"employee",
+            r"staff",
+            r"vendor",
+            r"supplier",
+            r"product",
+            r"account",
+        ]
+        
+        # Column names that suggest mutable attributes (SCD Type 2 candidates)
+        scd2_column_indicators = {
+            "address", "addr", "street", "city", "state", "zip", "postal",
+            "status", "tier", "level", "grade", "rank", "rating",
+            "department", "dept", "division", "team", "group",
+            "title", "position", "role", "job",
+            "salary", "wage", "rate", "price",
+            "email", "phone", "mobile", "contact",
+            "manager", "supervisor", "reports_to",
+            "category", "classification", "segment",
+            "membership", "subscription", "plan"
+        }
+        
+        # Check if table name matches SCD2 patterns
+        is_dimension_table = any(re.search(p, table_lower) for p in scd2_table_patterns)
+        
+        # Count SCD2 indicator columns
+        scd2_column_count = 0
+        for col in columns:
+            col_name = col.get("name", "").lower() if isinstance(col, dict) else str(col).lower()
+            for indicator in scd2_column_indicators:
+                if indicator in col_name:
+                    scd2_column_count += 1
+                    break
+        
+        # If it's a dimension table with 2+ mutable attribute columns, suggest SCD Type 2
+        if is_dimension_table and scd2_column_count >= 2:
+            logger.info(f"Heuristic: {table_name} detected as SCD Type 2 (dimension table with {scd2_column_count} mutable columns)")
+            return "scd_type2"
+        
+        # Customer/patron domain tables with mutable columns
+        if domain and "customer" in domain.lower() and scd2_column_count >= 2:
+            logger.info(f"Heuristic: {table_name} detected as SCD Type 2 (customer domain with {scd2_column_count} mutable columns)")
+            return "scd_type2"
+        
+        return None
+
     def _get_table_type(self, table_name, columns=None, primary_keys=None, domain=None):
         """Determines the table type using LLM analysis with pattern-based fallback.
         
         Priority:
         1. Known SCD Type 2 tables (explicit override list)
-        2. LLM-based detection (analyzes schema semantically)
-        3. Pattern matching fallback (for fact tables, etc.)
-        4. Default to SCD Type 1 (standard table)
+        2. LLM-based detection (if enabled, analyzes schema semantically)
+        3. Heuristic detection (fast pattern matching on columns)
+        4. Pattern matching for incremental tables
+        5. Default to SCD Type 1 (standard table)
         """
         # Priority 1: Check explicit override list first
         if self._is_scd_type2_table(table_name):
             logger.info(f"Table {table_name} matched explicit SCD Type 2 list")
             return "scd_type2"
         
-        # Priority 2: Use LLM detection if we have column info
-        if columns and domain:
+        # Priority 2: Use LLM detection if enabled and we have column info
+        if self._use_llm_for_scd and columns and domain:
             llm_result = self._detect_scd_type_with_llm(table_name, columns, primary_keys or [], domain)
             if llm_result:
                 scd_type = llm_result.get("scd_type", "scd_type1")
@@ -583,11 +666,17 @@ module.exports = { mapSybaseType };
                 else:
                     return "table"
         
-        # Priority 3: Pattern matching fallback
+        # Priority 3: Heuristic detection (fast, no LLM)
+        if columns:
+            heuristic_type = self._detect_scd_type_heuristic(table_name, columns, domain)
+            if heuristic_type:
+                return heuristic_type
+        
+        # Priority 4: Pattern matching for incremental tables
         if self._is_incremental_table(table_name):
             return "incremental"
         
-        # Priority 4: Default to standard table (SCD Type 1)
+        # Priority 5: Default to standard table (SCD Type 1)
         return "table"
 
     def _generate_scd_type2_sqlx(self, table_name, dataset, columns, primary_keys, partition_field, cluster_fields, domain):

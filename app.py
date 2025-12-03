@@ -1,8 +1,13 @@
 import os
+import json
+import asyncio
+import uuid
 from typing import List, Optional
+from queue import Queue
+from threading import Thread
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
-from fastapi.responses import JSONResponse, HTMLResponse, FileResponse
+from fastapi.responses import JSONResponse, HTMLResponse, FileResponse, StreamingResponse
 from google.cloud import storage
 
 from src.service import run_pipeline
@@ -279,6 +284,232 @@ async def index():
     </html>"""
 
 
+# Store for active pipeline runs with their status queues
+_active_runs = {}
+
+
+def _run_pipeline_with_status(config: dict, status_queue: Queue):
+    """Run pipeline in a thread, pushing status updates to a queue."""
+    def status_callback(stage: str, message: str, current: int = None, total: int = None):
+        status_queue.put({
+            "stage": stage,
+            "message": message,
+            "current": current,
+            "total": total
+        })
+    
+    try:
+        result = run_pipeline(config, status_callback=status_callback)
+        status_queue.put({"stage": "complete", "message": "Pipeline complete", "result": result})
+    except Exception as e:
+        status_queue.put({"stage": "error", "message": str(e), "error": True})
+
+
+@app.get("/runs/{run_id}/status")
+async def stream_run_status(run_id: str):
+    """SSE endpoint for streaming pipeline status updates."""
+    if run_id not in _active_runs:
+        raise HTTPException(status_code=404, detail="Run not found")
+    
+    status_queue = _active_runs[run_id]
+    
+    async def event_generator():
+        while True:
+            # Check for new status updates
+            if not status_queue.empty():
+                status = status_queue.get()
+                yield f"data: {json.dumps(status)}\n\n"
+                
+                # If complete or error, stop streaming
+                if status.get("stage") in ("complete", "error"):
+                    del _active_runs[run_id]
+                    break
+            else:
+                # Send keepalive
+                yield ": keepalive\n\n"
+            
+            await asyncio.sleep(0.5)
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        }
+    )
+
+
+def _progress_page_html(run_id: str) -> str:
+    """Generate HTML for the progress page with SSE updates."""
+    return f"""<!doctype html>
+    <html>
+    <head>
+      <title>Pipeline Running - {run_id[:8]}</title>
+      <style>
+        :root {{
+          --bg: #0f172a;
+          --bg-card: #020617;
+          --accent: #22c55e;
+          --text: #e5e7eb;
+          --muted: #9ca3af;
+        }}
+        body {{
+          margin: 0;
+          min-height: 100vh;
+          font-family: system-ui, -apple-system, sans-serif;
+          background: radial-gradient(circle at top left, #1e293b 0, #020617 40%);
+          color: var(--text);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }}
+        .container {{
+          max-width: 600px;
+          width: 100%;
+          padding: 2rem;
+        }}
+        h1 {{
+          font-size: 1.5rem;
+          margin-bottom: 0.5rem;
+        }}
+        .run-id {{
+          color: var(--muted);
+          font-size: 0.9rem;
+          margin-bottom: 2rem;
+        }}
+        .status-card {{
+          background: var(--bg-card);
+          border: 1px solid rgba(148,163,184,0.35);
+          border-radius: 0.75rem;
+          padding: 1.5rem;
+          margin-bottom: 1rem;
+        }}
+        .stage {{
+          font-size: 0.8rem;
+          text-transform: uppercase;
+          color: var(--accent);
+          margin-bottom: 0.5rem;
+        }}
+        .message {{
+          font-size: 1rem;
+          margin-bottom: 1rem;
+        }}
+        .progress-bar {{
+          background: rgba(148,163,184,0.2);
+          border-radius: 0.25rem;
+          height: 8px;
+          overflow: hidden;
+        }}
+        .progress-fill {{
+          background: linear-gradient(90deg, var(--accent), #4ade80);
+          height: 100%;
+          width: 0%;
+          transition: width 0.3s ease;
+        }}
+        .log {{
+          background: rgba(0,0,0,0.3);
+          border-radius: 0.5rem;
+          padding: 1rem;
+          max-height: 200px;
+          overflow-y: auto;
+          font-family: monospace;
+          font-size: 0.8rem;
+          color: var(--muted);
+        }}
+        .log-entry {{
+          margin-bottom: 0.25rem;
+        }}
+        .complete {{
+          color: var(--accent);
+        }}
+        .error {{
+          color: #ef4444;
+        }}
+        a {{
+          color: var(--accent);
+        }}
+        .hidden {{
+          display: none;
+        }}
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>Pipeline Running</h1>
+        <p class="run-id">Run ID: {run_id}</p>
+        
+        <div class="status-card">
+          <div class="stage" id="stage">Initializing...</div>
+          <div class="message" id="message">Starting pipeline...</div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="progress"></div>
+          </div>
+        </div>
+        
+        <div class="log" id="log"></div>
+        
+        <p id="result-link" class="hidden">
+          <a href="/runs/{run_id}/summary">View Results →</a>
+        </p>
+      </div>
+      
+      <script>
+        const runId = "{run_id}";
+        const stageEl = document.getElementById('stage');
+        const messageEl = document.getElementById('message');
+        const progressEl = document.getElementById('progress');
+        const logEl = document.getElementById('log');
+        const resultLink = document.getElementById('result-link');
+        
+        const eventSource = new EventSource('/runs/' + runId + '/status');
+        
+        eventSource.onmessage = function(event) {{
+          const data = JSON.parse(event.data);
+          
+          // Update stage
+          stageEl.textContent = data.stage || 'Processing';
+          stageEl.className = 'stage' + (data.stage === 'complete' ? ' complete' : '') + (data.error ? ' error' : '');
+          
+          // Update message
+          messageEl.textContent = data.message || '';
+          
+          // Update progress bar
+          if (data.current && data.total) {{
+            const pct = Math.round((data.current / data.total) * 100);
+            progressEl.style.width = pct + '%';
+          }}
+          
+          // Add to log
+          const logEntry = document.createElement('div');
+          logEntry.className = 'log-entry';
+          logEntry.textContent = '[' + data.stage + '] ' + data.message;
+          logEl.appendChild(logEntry);
+          logEl.scrollTop = logEl.scrollHeight;
+          
+          // Handle completion
+          if (data.stage === 'complete') {{
+            eventSource.close();
+            resultLink.classList.remove('hidden');
+            progressEl.style.width = '100%';
+          }}
+          
+          // Handle error
+          if (data.error) {{
+            eventSource.close();
+            messageEl.classList.add('error');
+          }}
+        }};
+        
+        eventSource.onerror = function() {{
+          stageEl.textContent = 'Connection lost';
+          stageEl.className = 'stage error';
+        }};
+      </script>
+    </body>
+    </html>"""
+
+
 @app.post("/runs/gcs")
 async def start_run_gcs(
     request: Request,
@@ -290,6 +521,8 @@ async def start_run_gcs(
     translate: bool = Form(False),
     validate: bool = Form(False),
 ):
+    run_id = str(uuid.uuid4())
+    
     config = {
         "source_type": "gcs",
         "bucket": bucket,
@@ -299,37 +532,25 @@ async def start_run_gcs(
         "categorize": categorize,
         "translate": translate,
         "validate": validate,
+        "run_id": run_id,
     }
 
-    result = run_pipeline(config)
-
-    # If client explicitly wants JSON, return JSON
+    # If client explicitly wants JSON, run synchronously
     accept = request.headers.get("accept", "")
     if "application/json" in accept:
+        result = run_pipeline(config)
         return JSONResponse(result)
 
-    run_id = result.get("run_id")
-    summary_url = f"/runs/{run_id}/summary" if run_id else "#"
+    # Start pipeline in background thread with status queue
+    status_queue = Queue()
+    _active_runs[run_id] = status_queue
+    
+    thread = Thread(target=_run_pipeline_with_status, args=(config, status_queue))
+    thread.daemon = True
+    thread.start()
 
-    # Simple HTML results page with link to summary
-    html = f"""<!doctype html>
-    <html>
-    <head>
-      <title>GCS Run Started</title>
-      <style>
-        body {{ font-family: Arial, sans-serif; margin: 2rem; }}
-        a {{ color: #1565c0; }}
-      </style>
-    </head>
-    <body>
-      <h1>Run started from GCS bucket</h1>
-      <p><strong>Run ID:</strong> {run_id}</p>
-      <p>View artefact links: <a href="{summary_url}">{summary_url}</a></p>
-      <p><a href="/">Back to start</a></p>
-    </body>
-    </html>"""
-
-    return HTMLResponse(content=html)
+    # Return progress page
+    return HTMLResponse(content=_progress_page_html(run_id))
 
 
 @app.post("/runs/local")
@@ -343,6 +564,8 @@ async def start_run_local(
     translate: bool = Form(False),
     validate: bool = Form(False),
 ):
+    run_id = str(uuid.uuid4())
+    
     input_dir = "input"
     os.makedirs(input_dir, exist_ok=True)
 
@@ -363,36 +586,25 @@ async def start_run_local(
         "categorize": categorize,
         "translate": translate,
         "validate": validate,
+        "run_id": run_id,
     }
 
-    result = run_pipeline(config)
-
-    # If client explicitly wants JSON, return JSON
+    # If client explicitly wants JSON, run synchronously
     accept = request.headers.get("accept", "")
     if "application/json" in accept:
+        result = run_pipeline(config)
         return JSONResponse(result)
 
-    run_id = result.get("run_id")
-    summary_url = f"/runs/{run_id}/summary" if run_id else "#"
+    # Start pipeline in background thread with status queue
+    status_queue = Queue()
+    _active_runs[run_id] = status_queue
+    
+    thread = Thread(target=_run_pipeline_with_status, args=(config, status_queue))
+    thread.daemon = True
+    thread.start()
 
-    html = f"""<!doctype html>
-    <html>
-    <head>
-      <title>Local Run Started</title>
-      <style>
-        body {{ font-family: Arial, sans-serif; margin: 2rem; }}
-        a {{ color: #1565c0; }}
-      </style>
-    </head>
-    <body>
-      <h1>Run started from uploaded files</h1>
-      <p><strong>Run ID:</strong> {run_id}</p>
-      <p>View artefact links: <a href="{summary_url}">{summary_url}</a></p>
-      <p><a href="/">Back to start</a></p>
-    </body>
-    </html>"""
-
-    return HTMLResponse(content=html)
+    # Return progress page
+    return HTMLResponse(content=_progress_page_html(run_id))
 
 
 @app.get("/runs/{run_id}/summary")

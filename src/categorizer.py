@@ -10,18 +10,30 @@ class DataCategorizer:
         self.output_dir = output_dir
         self.llm_client = LLMClient(project_id)
 
-    def categorize(self, analysis_results):
+    def categorize(self, analysis_results, status_callback=None):
         """Categorizes table fields by business domain."""
         logger.info("Starting data categorization...")
+        
+        if status_callback:
+            status_callback("categorization", "Inferring business domains...", 1, 4)
         
         # Step 1: Infer business domains from all tables
         domains = self._infer_domains(analysis_results)
         
+        if status_callback:
+            status_callback("categorization", f"Found {len(domains)} domains. Categorizing fields...", 2, 4)
+        
         # Step 2: Categorize each field
         categorizations = self._categorize_fields(analysis_results, domains)
         
+        if status_callback:
+            status_callback("categorization", "Saving categorization results...", 3, 4)
+        
         # Step 3: Save results
         self._save_results(domains, categorizations)
+        
+        if status_callback:
+            status_callback("categorization", "Generating categorization report...", 4, 4)
         
         # Step 4: Generate report
         self._generate_report(domains, categorizations)

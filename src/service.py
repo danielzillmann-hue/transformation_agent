@@ -2,6 +2,7 @@ import logging
 import os
 import uuid
 import shutil
+from typing import Callable, Optional
 
 from src.ingestion import IngestionEngine
 from src.analyzer import AnalysisEngine
@@ -15,6 +16,14 @@ from google.cloud import storage
 
 logger = logging.getLogger(__name__)
 
+# Type alias for status callback
+StatusCallback = Callable[[str, str, Optional[int], Optional[int]], None]
+
+
+def _noop_status(stage: str, message: str, current: int = None, total: int = None):
+    """Default no-op status callback."""
+    pass
+
 
 class LocalBlob:
     def __init__(self, path: str):
@@ -26,7 +35,16 @@ class LocalBlob:
             return f.read()
 
 
-def run_pipeline(config: dict) -> dict:
+def run_pipeline(config: dict, status_callback: StatusCallback = None) -> dict:
+    """Run the transformation pipeline with optional status updates.
+    
+    Args:
+        config: Pipeline configuration dictionary
+        status_callback: Optional callback function(stage, message, current, total)
+                        for progress updates
+    """
+    status = status_callback or _noop_status
+    
     source_type = config.get("source_type", "gcs")
     bucket = config.get("bucket")
     local_files = config.get("local_files", [])
@@ -41,6 +59,7 @@ def run_pipeline(config: dict) -> dict:
 
     logging.basicConfig(level=logging.INFO)
     logger.info("Starting pipeline %s with config: %s", run_id, config)
+    status("init", f"Starting pipeline run {run_id[:8]}...")
 
     results = {}
     base_output_root = config.get("output_root", "runs")
@@ -53,29 +72,37 @@ def run_pipeline(config: dict) -> dict:
         import json
 
         logger.info("Skipping analysis, loading results from JSON: %s", analysis_json_path)
+        status("analysis", "Loading cached analysis results...")
         with open(analysis_json_path, "r", encoding="utf-8") as f:
             results = json.load(f)
+        status("analysis", f"Loaded {len(results)} cached results")
     else:
         if source_type == "gcs":
             if not bucket:
                 raise ValueError("bucket is required when source_type is 'gcs'")
+            status("ingestion", f"Connecting to GCS bucket: {bucket}")
             ingestion = IngestionEngine(bucket)
             files = ingestion.list_files()
             logger.info("Found %d files in bucket %s", len(files), bucket)
+            status("ingestion", f"Found {len(files)} files in bucket")
         elif source_type == "local":
             if not local_files:
                 raise ValueError("local_files must be provided when source_type is 'local'")
             files = [LocalBlob(path) for path in local_files]
             logger.info("Using %d local files for analysis", len(files))
+            status("ingestion", f"Loaded {len(files)} local files")
         else:
             raise ValueError(f"Unsupported source_type: {source_type}")
 
+        status("analysis", f"Analyzing {len(files)} files with LLM...")
         analyzer = AnalysisEngine(project_id=project_id)
-        results = analyzer.analyze(files)
+        results = analyzer.analyze(files, status_callback=status)
 
+    status("reporting", "Generating analysis report...")
     reporter = Reporter(output_dir=output_dir)
     reporter.generate_report(results)
 
+    status("visualization", "Creating dependency diagram...")
     visualizer = Visualizer(output_dir=output_dir)
     visualizer.generate_dependency_diagram(results)
 
@@ -83,8 +110,9 @@ def run_pipeline(config: dict) -> dict:
     categorization_json_path = os.path.join(output_dir, "data_categorization.json")
 
     if do_categorize:
+        status("categorization", "Categorizing data by business domain...")
         categorizer = DataCategorizer(project_id=project_id, output_dir=output_dir)
-        categorizer.categorize(results)
+        categorizer.categorize(results, status_callback=status)
 
         import json
 
@@ -102,12 +130,14 @@ def run_pipeline(config: dict) -> dict:
             else:
                 categorization_results = {"domains": [], "categorizations": {}}
 
+        status("translation", "Translating schemas to BigQuery/Dataform...")
         translator = SchemaTranslator(project_id=project_id, output_dir=output_dir)
-        translator.translate(results, categorization_results)
+        translator.translate(results, categorization_results, status_callback=status)
 
     if do_validate:
+        status("validation", "Generating validation test cases...")
         validator = ValidationEngine(project_id=project_id, output_dir=output_dir)
-        validator.validate(results)
+        validator.validate(results, status_callback=status)
 
     dataform_dir = os.path.join(output_dir, "dataform") if os.path.isdir(os.path.join(output_dir, "dataform")) else None
     validation_tests_path = os.path.join(output_dir, "validation_tests.json") if os.path.exists(os.path.join(output_dir, "validation_tests.json")) else None
