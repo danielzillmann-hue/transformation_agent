@@ -82,3 +82,39 @@ Focus on tests such as:
 3. Distinct count comparisons on key business identifiers.
 4. Spot-check filters on important business conditions (e.g. recent dates, statuses).
 """
+
+SCD_TYPE_DETECTION_PROMPT = """You are a data warehouse expert analyzing a table schema to determine the appropriate Slowly Changing Dimension (SCD) strategy.
+
+**Table Name**: {table_name}
+**Domain**: {domain}
+**Columns**: {columns}
+**Primary Keys**: {primary_keys}
+
+Determine the appropriate SCD type based on these criteria:
+
+**SCD Type 2** (track history) - Use when:
+- The table represents entities where historical changes matter (customers, members, patrons, employees, products with changing attributes)
+- Contains attributes that change over time and business needs to track the history (e.g., customer address, membership tier, status changes)
+- Has columns like: name, address, status, tier, level, category, classification that may change
+- Is a dimension table for people, organizations, or entities with mutable attributes
+
+**SCD Type 1** (overwrite) - Use when:
+- The table is a reference/lookup table (codes, types, statuses)
+- Historical changes don't matter or corrections should overwrite
+- Contains mostly static data (countries, currencies, date dimensions)
+- Is a small dimension with rarely changing data
+
+**Incremental** - Use when:
+- The table is a fact table (transactions, events, activities, logs)
+- Data is append-only or has a clear timestamp for updates
+- Contains measures/metrics that are aggregated
+- Has high volume and needs efficient loading
+
+Return ONLY a JSON object:
+{{
+  "scd_type": "scd_type2" | "scd_type1" | "incremental",
+  "confidence": "high" | "medium" | "low",
+  "reasoning": "Brief explanation of why this SCD type was chosen",
+  "history_tracking_columns": ["list", "of", "columns", "that", "may", "change"]
+}}
+"""

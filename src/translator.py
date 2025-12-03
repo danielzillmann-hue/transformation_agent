@@ -24,6 +24,34 @@ class SchemaTranslator:
             "Reference & Time Data": "crown_reference"
         }
         
+        # SCD Type 2 dimension tables - known tables that require history tracking
+        # Patron dimension is explicitly SCD Type 2 per CW data flow documentation
+        # This serves as a fallback/override when LLM detection is unavailable
+        self.scd_type2_tables = {
+            "patron", "d_patron", "dim_patron", "patron_dim",
+            "customer", "d_customer", "dim_customer",
+            "member", "d_member", "dim_member"
+        }
+        
+        # Tables that should use incremental loading (fact tables, large dimensions)
+        # Used as fallback patterns when LLM detection is unavailable
+        self.incremental_table_patterns = [
+            r"^f_",      # Fact tables
+            r"^fact_",
+            r"_fact$",
+            r"^stg_",    # Staging tables
+            r"_stg$",
+            r"^trans",   # Transaction tables
+            r"_trans$",
+            r"_log$",    # Log/audit tables
+            r"_hist$",   # History tables
+            r"_activity",
+            r"_event"
+        ]
+        
+        # Cache for LLM-detected SCD types to avoid repeated calls
+        self._scd_type_cache = {}
+        
         # Sybase to BigQuery type mapping (built-in defaults)
         self.type_mappings = {
             "INT": "INT64",
@@ -227,15 +255,40 @@ module.exports = { mapSybaseType };
         partition_field = self._suggest_partition_field(columns)
         cluster_fields = self._suggest_cluster_fields(columns, primary_keys)
         
-        # Generate .sqlx content
-        sqlx_content = self._generate_sqlx(
-            table_name, 
-            dataset, 
-            bq_columns, 
-            partition_field, 
-            cluster_fields,
-            domain
-        )
+        # Determine table type using LLM analysis with fallback to pattern matching
+        table_type = self._get_table_type(table_name, columns, primary_keys, domain)
+        logger.info(f"Table {table_name} detected as type: {table_type}")
+        
+        if table_type == "scd_type2":
+            sqlx_content = self._generate_scd_type2_sqlx(
+                table_name,
+                dataset,
+                bq_columns,
+                primary_keys,
+                partition_field,
+                cluster_fields,
+                domain
+            )
+        elif table_type == "incremental":
+            sqlx_content = self._generate_incremental_sqlx(
+                table_name,
+                dataset,
+                bq_columns,
+                primary_keys,
+                partition_field,
+                cluster_fields,
+                domain
+            )
+        else:
+            # Standard table (SCD Type 1 - full replace)
+            sqlx_content = self._generate_sqlx(
+                table_name, 
+                dataset, 
+                bq_columns, 
+                partition_field, 
+                cluster_fields,
+                domain
+            )
         
         # Write to file
         domain_slug = self._slugify(domain)
@@ -373,7 +426,11 @@ module.exports = { mapSybaseType };
         return cluster_candidates
 
     def _generate_sqlx(self, table_name, dataset, columns, partition_field, cluster_fields, domain):
-        """Generates Dataform .sqlx content with valid config syntax."""
+        """Generates Dataform .sqlx content for standard tables (SCD Type 1 - full replace).
+        
+        SCD Type 1 simply overwrites existing data with new values.
+        This is the default for most dimension tables except Patron.
+        """
 
         # Base properties (include commas on the lines themselves)
         config_lines = [
@@ -428,3 +485,283 @@ module.exports = { mapSybaseType };
     def _slugify(self, text):
         """Converts text to slug format."""
         return text.lower().replace(" & ", "_").replace(" ", "_").replace("-", "_")
+
+    def _is_scd_type2_table(self, table_name):
+        """Checks if a table is in the known SCD Type 2 list (fallback)."""
+        table_lower = table_name.lower()
+        return table_lower in self.scd_type2_tables
+
+    def _is_incremental_table(self, table_name):
+        """Checks if a table matches incremental patterns (fallback)."""
+        table_lower = table_name.lower()
+        # Check against patterns
+        for pattern in self.incremental_table_patterns:
+            if re.search(pattern, table_lower):
+                return True
+        return False
+
+    def _detect_scd_type_with_llm(self, table_name, columns, primary_keys, domain):
+        """Uses LLM to intelligently detect the appropriate SCD type based on schema analysis."""
+        from src.prompts import SCD_TYPE_DETECTION_PROMPT
+        
+        # Check cache first
+        if table_name in self._scd_type_cache:
+            cached = self._scd_type_cache[table_name]
+            logger.info(f"Using cached SCD type for {table_name}: {cached['scd_type']}")
+            return cached
+        
+        # Format columns for the prompt
+        column_info = []
+        for col in columns:
+            if isinstance(col, dict):
+                column_info.append(f"{col.get('name', 'unknown')}: {col.get('type', 'unknown')}")
+            else:
+                # Already formatted string
+                column_info.append(str(col).strip())
+        
+        prompt = SCD_TYPE_DETECTION_PROMPT.format(
+            table_name=table_name,
+            domain=domain,
+            columns=", ".join(column_info[:20]),  # Limit to 20 columns for prompt size
+            primary_keys=", ".join(primary_keys) if primary_keys else "Not specified"
+        )
+        
+        try:
+            response = self.llm_client.generate_content(prompt)
+            
+            # Parse response
+            clean_response = response.replace("```json", "").replace("```", "").strip()
+            if "{" in clean_response:
+                start = clean_response.find("{")
+                end = clean_response.rfind("}") + 1
+                clean_response = clean_response[start:end]
+            
+            result = json.loads(clean_response)
+            
+            # Normalize scd_type value
+            scd_type = result.get("scd_type", "scd_type1").lower().replace("-", "_").replace(" ", "_")
+            if scd_type not in ["scd_type2", "scd_type1", "incremental"]:
+                scd_type = "scd_type1"  # Default fallback
+            
+            result["scd_type"] = scd_type
+            
+            # Cache the result
+            self._scd_type_cache[table_name] = result
+            
+            logger.info(f"LLM detected SCD type for {table_name}: {scd_type} (confidence: {result.get('confidence', 'unknown')})")
+            logger.info(f"  Reasoning: {result.get('reasoning', 'N/A')}")
+            
+            return result
+            
+        except Exception as e:
+            logger.warning(f"LLM SCD detection failed for {table_name}: {e}. Using fallback detection.")
+            return None
+
+    def _get_table_type(self, table_name, columns=None, primary_keys=None, domain=None):
+        """Determines the table type using LLM analysis with pattern-based fallback.
+        
+        Priority:
+        1. Known SCD Type 2 tables (explicit override list)
+        2. LLM-based detection (analyzes schema semantically)
+        3. Pattern matching fallback (for fact tables, etc.)
+        4. Default to SCD Type 1 (standard table)
+        """
+        # Priority 1: Check explicit override list first
+        if self._is_scd_type2_table(table_name):
+            logger.info(f"Table {table_name} matched explicit SCD Type 2 list")
+            return "scd_type2"
+        
+        # Priority 2: Use LLM detection if we have column info
+        if columns and domain:
+            llm_result = self._detect_scd_type_with_llm(table_name, columns, primary_keys or [], domain)
+            if llm_result:
+                scd_type = llm_result.get("scd_type", "scd_type1")
+                if scd_type == "scd_type2":
+                    return "scd_type2"
+                elif scd_type == "incremental":
+                    return "incremental"
+                else:
+                    return "table"
+        
+        # Priority 3: Pattern matching fallback
+        if self._is_incremental_table(table_name):
+            return "incremental"
+        
+        # Priority 4: Default to standard table (SCD Type 1)
+        return "table"
+
+    def _generate_scd_type2_sqlx(self, table_name, dataset, columns, primary_keys, partition_field, cluster_fields, domain):
+        """Generates Dataform .sqlx content for SCD Type 2 dimension tables.
+        
+        SCD Type 2 maintains history by:
+        - Adding effective_from, effective_to, and is_current columns
+        - Closing off old records (setting effective_to and is_current=false)
+        - Inserting new records with is_current=true
+        """
+        # Determine the business key (usually the primary key minus surrogate keys)
+        business_keys = primary_keys if primary_keys else ["id"]
+        business_key_str = ", ".join(business_keys)
+        business_key_match = " AND ".join([f"target.{k} = source.{k}" for k in business_keys])
+        
+        # Build column list for comparison (exclude SCD metadata columns)
+        scd_metadata_cols = {"effective_from", "effective_to", "is_current", "dw_insert_date", "dw_update_date"}
+        compare_columns = []
+        all_column_names = []
+        for col_def in columns:
+            # Extract column name from definition like "  col_name TYPE"
+            col_name = col_def.strip().split()[0]
+            all_column_names.append(col_name)
+            if col_name.lower() not in scd_metadata_cols:
+                compare_columns.append(col_name)
+        
+        # Generate change detection condition
+        change_conditions = " OR ".join([f"target.{c} != source.{c}" for c in compare_columns[:10]])  # Limit to 10 for readability
+        
+        # Column list for INSERT
+        source_columns = ", ".join([f"source.{c}" for c in all_column_names])
+        
+        unique_key_list = ", ".join([f'"{k}"' for k in business_keys])
+        config_lines = [
+            '  type: "incremental",',
+            f'  schema: "{dataset}",',
+            f'  description: "SCD Type 2 dimension - {table_name} (migrated from Sybase)",',
+            f'  uniqueKey: [{unique_key_list}, "effective_from"],',
+        ]
+        
+        # Add BigQuery-specific settings
+        if partition_field or cluster_fields:
+            config_lines.append('  bigquery: {')
+            if partition_field:
+                config_lines.append(f'    partitionBy: "{partition_field}",')
+            if cluster_fields:
+                cluster_str = ", ".join([f'"{f}"' for f in cluster_fields])
+                config_lines.append(f'    clusterBy: [{cluster_str}]')
+            config_lines.append('  }')
+        
+        config_block = "config {\n" + "\n".join(config_lines) + "\n}\n\n"
+        
+        sqlx = f"""-- Dataform SCD Type 2 dimension table for {table_name}
+-- Source: Sybase
+-- Domain: {domain}
+-- Dataset: {dataset}
+-- 
+-- SCD Type 2 Logic:
+-- - Tracks historical changes by closing off old records and inserting new ones
+-- - Uses effective_from/effective_to date range and is_current flag
+-- - Business Key: {business_key_str}
+
+{config_block}-- Step 1: Get incoming source data with change detection
+WITH source_data AS (
+  SELECT
+{chr(10).join(['    ' + col + ',' for col in columns])}
+    CURRENT_TIMESTAMP() AS effective_from,
+    CAST(NULL AS TIMESTAMP) AS effective_to,
+    TRUE AS is_current
+  FROM ${{ref('stg_{table_name.lower()}')}}
+),
+
+-- Step 2: Identify changed records that need to be closed off
+records_to_close AS (
+  SELECT
+    target.*
+  FROM ${{self()}} AS target
+  INNER JOIN source_data AS source
+    ON {business_key_match}
+  WHERE target.is_current = TRUE
+    AND ({change_conditions})
+),
+
+-- Step 3: Close off changed records (set effective_to and is_current = false)
+closed_records AS (
+  SELECT
+{chr(10).join(['    ' + c + ',' for c in all_column_names])}
+    effective_from,
+    CURRENT_TIMESTAMP() AS effective_to,
+    FALSE AS is_current
+  FROM records_to_close
+),
+
+-- Step 4: New and changed records to insert
+new_records AS (
+  SELECT source.*
+  FROM source_data AS source
+  LEFT JOIN ${{self()}} AS target
+    ON {business_key_match}
+    AND target.is_current = TRUE
+  WHERE target.{business_keys[0]} IS NULL  -- New record
+     OR ({change_conditions})              -- Changed record
+)
+
+-- Final output: closed records + new records
+SELECT * FROM closed_records
+UNION ALL
+SELECT * FROM new_records
+"""
+        
+        return sqlx
+
+    def _generate_incremental_sqlx(self, table_name, dataset, columns, primary_keys, partition_field, cluster_fields, domain):
+        """Generates Dataform .sqlx content for incremental tables (fact tables, etc.).
+        
+        Uses MERGE logic to handle inserts and updates efficiently.
+        """
+        # Determine merge keys
+        merge_keys = primary_keys if primary_keys else ["id"]
+        merge_key_match = " AND ".join([f"target.{k} = source.{k}" for k in merge_keys])
+        
+        # Extract column names
+        all_column_names = []
+        for col_def in columns:
+            col_name = col_def.strip().split()[0]
+            all_column_names.append(col_name)
+        
+        # Generate update set clause
+        update_set = ", ".join([f"{c} = source.{c}" for c in all_column_names if c not in merge_keys])
+        
+        unique_key_list = ", ".join([f'"{k}"' for k in merge_keys])
+        config_lines = [
+            '  type: "incremental",',
+            f'  schema: "{dataset}",',
+            f'  description: "Incremental table - {table_name} (migrated from Sybase)",',
+            f'  uniqueKey: [{unique_key_list}],',
+        ]
+        
+        # Add BigQuery-specific settings
+        if partition_field or cluster_fields:
+            config_lines.append('  bigquery: {')
+            if partition_field:
+                config_lines.append(f'    partitionBy: "{partition_field}",')
+            if cluster_fields:
+                cluster_str = ", ".join([f'"{f}"' for f in cluster_fields])
+                config_lines.append(f'    clusterBy: [{cluster_str}]')
+            config_lines.append('  }')
+        
+        config_block = "config {\n" + "\n".join(config_lines) + "\n}\n\n"
+        
+        # For incremental, we select only new/changed records
+        sqlx = f"""-- Dataform incremental table for {table_name}
+-- Source: Sybase
+-- Domain: {domain}
+-- Dataset: {dataset}
+-- Merge Keys: {", ".join(merge_keys)}
+
+{config_block}-- Incremental load: only process new or updated records
+SELECT
+{chr(10).join(['  ' + col + ',' for col in columns[:-1]])}
+  {columns[-1] if columns else ''}
+FROM ${{ref('stg_{table_name.lower()}')}} AS source
+
+${{when(incremental(), `
+WHERE NOT EXISTS (
+  SELECT 1 FROM ${{self()}} AS target
+  WHERE {merge_key_match}
+)
+OR EXISTS (
+  SELECT 1 FROM ${{self()}} AS target
+  WHERE {merge_key_match}
+    AND source.dw_update_date > target.dw_update_date
+)
+`)}}
+"""
+        
+        return sqlx
