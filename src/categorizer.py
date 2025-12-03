@@ -2,6 +2,7 @@ import json
 import os
 import logging
 from src.llm_client import LLMClient
+from src.json_utils import safe_parse_json, extract_json, repair_json
 
 logger = logging.getLogger(__name__)
 
@@ -50,14 +51,12 @@ class DataCategorizer:
             analysis = data.get('analysis', '')
             if 'table_name' in analysis:
                 try:
-                    # Extract JSON
-                    clean_analysis = analysis.replace("```json", "").replace("```", "").strip()
-                    if "{" in clean_analysis:
-                        start = clean_analysis.find("{")
-                        end = clean_analysis.rfind("}") + 1
-                        clean_analysis = clean_analysis[start:end]
+                    # Use safe JSON parsing with repair
+                    info = safe_parse_json(analysis)
+                    if not info:
+                        logger.warning(f"Could not parse JSON for {filename}")
+                        continue
                     
-                    info = json.loads(clean_analysis)
                     table_name = info.get("table_name")
                     columns = [col.get("name") for col in info.get("columns", [])][:10]  # First 10 columns
                     
@@ -66,7 +65,8 @@ class DataCategorizer:
                             "table": table_name,
                             "sample_columns": columns
                         })
-                except:
+                except Exception as e:
+                    logger.warning(f"Failed to process {filename}: {e}")
                     continue
         
         # Create prompt for domain inference

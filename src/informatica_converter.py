@@ -2,6 +2,7 @@ import json
 import os
 import logging
 from src.llm_client import LLMClient
+from src.json_utils import safe_parse_json
 
 logger = logging.getLogger(__name__)
 
@@ -31,14 +32,12 @@ class InformaticaConverter:
                 continue
             
             try:
-                # Extract mapping info
-                clean_analysis = analysis.replace("```json", "").replace("```", "").strip()
-                if "{" in clean_analysis:
-                    start = clean_analysis.find("{")
-                    end = clean_analysis.rfind("}") + 1
-                    clean_analysis = clean_analysis[start:end]
+                # Use safe JSON parsing with repair
+                mapping_info = safe_parse_json(analysis)
+                if not mapping_info:
+                    logger.warning(f"Could not parse JSON for {filename}, skipping")
+                    continue
                 
-                mapping_info = json.loads(clean_analysis)
                 mapping_name = mapping_info.get("mapping_name")
                 
                 if not mapping_name or mapping_name == "null":

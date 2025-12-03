@@ -1,6 +1,7 @@
 import json
 import os
 import logging
+from src.json_utils import safe_parse_json
 
 logger = logging.getLogger(__name__)
 
@@ -21,15 +22,11 @@ class Visualizer:
                 continue
 
             try:
-                # Extract JSON from the analysis text
-                clean_analysis = analysis_text.replace("```json", "").replace("```", "").strip()
-                # Sometimes the model might add extra text, simple heuristic to find start/end of JSON
-                if "{" in clean_analysis:
-                    start = clean_analysis.find("{")
-                    end = clean_analysis.rfind("}") + 1
-                    clean_analysis = clean_analysis[start:end]
-                
-                info = json.loads(clean_analysis)
+                # Use safe JSON parsing with repair
+                info = safe_parse_json(analysis_text)
+                if not info:
+                    logger.warning(f"Could not parse JSON for {filename}")
+                    continue
                 
                 # Node Identification
                 node_name = None

@@ -4,6 +4,7 @@ import re
 import logging
 from google.cloud import storage
 from src.llm_client import LLMClient
+from src.json_utils import safe_parse_json
 
 logger = logging.getLogger(__name__)
 
@@ -27,10 +28,37 @@ class SchemaTranslator:
         # SCD Type 2 dimension tables - known tables that require history tracking
         # Patron dimension is explicitly SCD Type 2 per CW data flow documentation
         # This serves as a fallback/override when LLM detection is unavailable
+        # ONLY tables representing individual people should be SCD Type 2
         self.scd_type2_tables = {
             "patron", "d_patron", "dim_patron", "patron_dim",
             "customer", "d_customer", "dim_customer",
-            "member", "d_member", "dim_member"
+            "member", "d_member", "dim_member",
+            "employee", "d_employee", "dim_employee"
+        }
+        
+        # Tables that should NEVER be SCD Type 2 (reference/lookup tables)
+        # These override LLM detection to prevent over-classification
+        self.scd_type1_tables = {
+            # Age/demographic lookups
+            "age", "d_age", "dim_age", "age_range", "d_age_range",
+            # Location/site reference
+            "site", "d_site", "dim_site", "location", "d_location", "dim_location",
+            "casinolocation", "d_casinolocation", "casinolocationdet", "d_casinolocationdet",
+            "terminallocation", "d_terminallocation", "terminallocationdet", "d_terminallocationdet",
+            # Product/machine reference
+            "product", "d_product", "dim_product", "productdet", "d_productdet",
+            "gamingmachine", "d_gamingmachine", "dim_gamingmachine",
+            "machine", "d_machine", "dim_machine",
+            # Organizational reference
+            "department", "d_department", "dim_department",
+            "license", "d_license", "gaminglicense", "d_gaminglicense",
+            # Program/tier reference
+            "plyr_prog", "d_plyr_prog", "player_program",
+            # Date/time dimensions
+            "date", "d_date", "dim_date", "time", "d_time", "dim_time",
+            # Other common reference tables
+            "currency", "d_currency", "country", "d_country", "state", "d_state",
+            "status", "d_status", "type", "d_type", "code", "d_code"
         }
         
         # Tables that should use incremental loading (fact tables, large dimensions)
@@ -140,14 +168,12 @@ class SchemaTranslator:
                 continue
             
             try:
-                # Extract table info
-                clean_analysis = analysis.replace("```json", "").replace("```", "").strip()
-                if "{" in clean_analysis:
-                    start = clean_analysis.find("{")
-                    end = clean_analysis.rfind("}") + 1
-                    clean_analysis = clean_analysis[start:end]
+                # Extract table info using safe JSON parsing with repair
+                info = safe_parse_json(analysis)
+                if not info:
+                    logger.warning(f"Could not parse JSON for {filename}, skipping")
+                    continue
                 
-                info = json.loads(clean_analysis)
                 table_name = info.get("table_name")
                 
                 if not table_name:
@@ -516,6 +542,14 @@ module.exports = { mapSybaseType };
         table_lower = table_name.lower()
         return table_lower in self.scd_type2_tables
 
+    def _is_scd_type1_table(self, table_name):
+        """Checks if a table is in the known SCD Type 1 list (reference tables).
+        
+        These tables should NEVER be SCD Type 2, regardless of what the LLM says.
+        """
+        table_lower = table_name.lower()
+        return table_lower in self.scd_type1_tables
+
     def _is_incremental_table(self, table_name):
         """Checks if a table matches incremental patterns (fallback)."""
         table_lower = table_name.lower()
@@ -643,38 +677,49 @@ module.exports = { mapSybaseType };
         """Determines the table type using LLM analysis with pattern-based fallback.
         
         Priority:
-        1. Known SCD Type 2 tables (explicit override list)
-        2. LLM-based detection (if enabled, analyzes schema semantically)
-        3. Heuristic detection (fast pattern matching on columns)
-        4. Pattern matching for incremental tables
+        1. Known SCD Type 1 tables (reference tables - NEVER Type 2)
+        2. Known SCD Type 2 tables (explicit override list for people entities)
+        3. Pattern matching for incremental/fact tables
+        4. LLM-based detection (if enabled, analyzes schema semantically)
         5. Default to SCD Type 1 (standard table)
+        
+        Note: SCD Type 1 check comes FIRST to prevent LLM from over-classifying
+        reference tables as Type 2.
         """
-        # Priority 1: Check explicit override list first
+        # Priority 1: Check explicit SCD Type 1 list (reference tables)
+        # These should NEVER be Type 2, regardless of what LLM says
+        if self._is_scd_type1_table(table_name):
+            logger.info(f"Table {table_name} matched explicit SCD Type 1 list (reference table)")
+            return "table"
+        
+        # Priority 2: Check explicit SCD Type 2 list (people entities)
         if self._is_scd_type2_table(table_name):
             logger.info(f"Table {table_name} matched explicit SCD Type 2 list")
             return "scd_type2"
         
-        # Priority 2: Use LLM detection if enabled and we have column info
+        # Priority 3: Pattern matching for incremental/fact tables
+        if self._is_incremental_table(table_name):
+            logger.info(f"Table {table_name} matched incremental pattern")
+            return "incremental"
+        
+        # Priority 4: Use LLM detection if enabled and we have column info
         if self._use_llm_for_scd and columns and domain:
             llm_result = self._detect_scd_type_with_llm(table_name, columns, primary_keys or [], domain)
             if llm_result:
                 scd_type = llm_result.get("scd_type", "scd_type1")
+                # Only accept SCD Type 2 from LLM if confidence is high
+                # and it's not a table that looks like a reference table
                 if scd_type == "scd_type2":
-                    return "scd_type2"
+                    confidence = llm_result.get("confidence", "low")
+                    if confidence == "high":
+                        return "scd_type2"
+                    else:
+                        logger.info(f"LLM suggested Type 2 for {table_name} but confidence was {confidence}, defaulting to Type 1")
+                        return "table"
                 elif scd_type == "incremental":
                     return "incremental"
                 else:
                     return "table"
-        
-        # Priority 3: Heuristic detection (fast, no LLM)
-        if columns:
-            heuristic_type = self._detect_scd_type_heuristic(table_name, columns, domain)
-            if heuristic_type:
-                return heuristic_type
-        
-        # Priority 4: Pattern matching for incremental tables
-        if self._is_incremental_table(table_name):
-            return "incremental"
         
         # Priority 5: Default to standard table (SCD Type 1)
         return "table"

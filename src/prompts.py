@@ -83,38 +83,43 @@ Focus on tests such as:
 4. Spot-check filters on important business conditions (e.g. recent dates, statuses).
 """
 
-SCD_TYPE_DETECTION_PROMPT = """You are a data warehouse expert analyzing a table schema to determine the appropriate Slowly Changing Dimension (SCD) strategy.
+SCD_TYPE_DETECTION_PROMPT = """You are a data warehouse expert. Analyze this table schema and determine the SCD strategy.
+
+**IMPORTANT: Default to SCD Type 1 unless there is a CLEAR business need for history tracking.**
 
 **Table Name**: {table_name}
 **Domain**: {domain}
 **Columns**: {columns}
 **Primary Keys**: {primary_keys}
 
-Determine the appropriate SCD type based on these criteria:
+## Decision Rules (apply in order):
 
-**SCD Type 2** (track history) - Use when:
-- The table represents entities where historical changes matter (customers, members, patrons, employees, products with changing attributes)
-- Contains attributes that change over time and business needs to track the history (e.g., customer address, membership tier, status changes)
-- Has columns like: name, address, status, tier, level, category, classification that may change
-- Is a dimension table for people, organizations, or entities with mutable attributes
+### Use SCD Type 1 (DEFAULT - most tables):
+- Reference/lookup tables (codes, types, categories, statuses, locations, sites, departments)
+- Static dimensions (age ranges, date dimensions, geographic hierarchies)
+- Configuration or system tables
+- Tables where the name contains: AGE, CODE, TYPE, STATUS, LOCATION, SITE, DEPARTMENT, LICENSE, PRODUCT, MACHINE, TERMINAL
+- ANY table where you're uncertain - default to Type 1
 
-**SCD Type 1** (overwrite) - Use when:
-- The table is a reference/lookup table (codes, types, statuses)
-- Historical changes don't matter or corrections should overwrite
-- Contains mostly static data (countries, currencies, date dimensions)
-- Is a small dimension with rarely changing data
+### Use SCD Type 2 (RARE - only for specific entities):
+ONLY use Type 2 if ALL of these are true:
+1. The table represents INDIVIDUAL PEOPLE (customers, patrons, members, employees) - NOT products, machines, or locations
+2. The business explicitly needs to track historical changes to personal attributes
+3. Contains mutable personal attributes like: home_address, mailing_address, membership_tier, employment_status, marital_status
 
-**Incremental** - Use when:
-- The table is a fact table (transactions, events, activities, logs)
-- Data is append-only or has a clear timestamp for updates
-- Contains measures/metrics that are aggregated
-- Has high volume and needs efficient loading
+Examples that ARE SCD Type 2: D_PATRON, D_CUSTOMER, D_MEMBER, D_EMPLOYEE
+Examples that are NOT SCD Type 2: D_PRODUCT, D_SITE, D_LOCATION, D_MACHINE, D_AGE, D_DEPARTMENT
+
+### Use Incremental (for fact tables):
+- Transaction/event tables with timestamps
+- High-volume append-only data
+- Tables with names containing: FACT, F_, TRANS, EVENT, LOG, ACTIVITY
 
 Return ONLY a JSON object:
 {{
-  "scd_type": "scd_type2" | "scd_type1" | "incremental",
+  "scd_type": "scd_type1" | "scd_type2" | "incremental",
   "confidence": "high" | "medium" | "low",
-  "reasoning": "Brief explanation of why this SCD type was chosen",
-  "history_tracking_columns": ["list", "of", "columns", "that", "may", "change"]
+  "reasoning": "Brief explanation",
+  "history_tracking_columns": []
 }}
 """
