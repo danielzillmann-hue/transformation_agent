@@ -4,6 +4,7 @@ import logging
 
 from src.llm_client import LLMClient
 from src.prompts import VALIDATION_TEST_PROMPT
+from src.json_utils import safe_parse_json
 
 logger = logging.getLogger(__name__)
 
@@ -33,16 +34,10 @@ class ValidationEngine:
             if not analysis_text or analysis_text.startswith("Error"):
                 continue
 
-            try:
-                clean_analysis = analysis_text.replace("```json", "").replace("```", "").strip()
-                if "{" in clean_analysis:
-                    start = clean_analysis.find("{")
-                    end = clean_analysis.rfind("}") + 1
-                    clean_analysis = clean_analysis[start:end]
-
-                info = json.loads(clean_analysis)
-            except Exception as e:
-                logger.warning(f"Skipping {filename} for validation, could not parse JSON: {e}")
+            # Use safe JSON parsing with repair
+            info = safe_parse_json(analysis_text)
+            if not info:
+                logger.warning(f"Skipping {filename} for validation, could not parse JSON")
                 continue
 
             # Determine object type for prompt context
@@ -51,21 +46,16 @@ class ValidationEngine:
             prompt = VALIDATION_TEST_PROMPT.format(object_type=object_type, analysis=json.dumps(info, indent=2))
             response = self.llm_client.generate_content(prompt)
 
-            try:
-                clean_response = response.replace("```json", "").replace("```", "").strip()
-                if "{" in clean_response:
-                    start = clean_response.find("{")
-                    end = clean_response.rfind("}") + 1
-                    clean_response = clean_response[start:end]
-
-                tests = json.loads(clean_response)
-                test_definitions[filename] = {
-                    "object_type": object_type,
-                    "tests": tests,
-                }
-            except Exception as e:
-                logger.warning(f"Failed to parse validation tests for {filename}: {e}")
+            # Use safe JSON parsing with repair for LLM response
+            tests = safe_parse_json(response)
+            if not tests:
+                logger.warning(f"Failed to parse validation tests for {filename}")
                 continue
+            
+            test_definitions[filename] = {
+                "object_type": object_type,
+                "tests": tests,
+            }
 
         if status_callback:
             status_callback("validation", "Saving validation results...", 2, 3)

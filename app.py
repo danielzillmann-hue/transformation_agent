@@ -237,7 +237,7 @@ async def index():
                 <span>Generate BigQuery / Dataform project</span>
               </div>
               <div class="inline-option">
-                <input type="checkbox" name="validate" value="true" checked />
+                <input type="checkbox" name="run_validation" value="true" checked />
                 <span>Create validation test definitions</span>
               </div>
               <button type="submit">Start GCS run</button>
@@ -267,7 +267,7 @@ async def index():
                 <span>Generate BigQuery / Dataform project</span>
               </div>
               <div class="inline-option">
-                <input type="checkbox" name="validate" value="true" checked />
+                <input type="checkbox" name="run_validation" value="true" checked />
                 <span>Create validation test definitions</span>
               </div>
               <button type="submit">Start local run</button>
@@ -519,7 +519,7 @@ async def start_run_gcs(
     skip_analysis: bool = Form(False),
     categorize: bool = Form(False),
     translate: bool = Form(False),
-    validate: bool = Form(False),
+    run_validation: bool = Form(False),
 ):
     run_id = str(uuid.uuid4())
     
@@ -531,7 +531,7 @@ async def start_run_gcs(
         "skip_analysis": skip_analysis,
         "categorize": categorize,
         "translate": translate,
-        "validate": validate,
+        "validate": run_validation,
         "run_id": run_id,
     }
 
@@ -562,7 +562,7 @@ async def start_run_local(
     skip_analysis: bool = Form(False),
     categorize: bool = Form(False),
     translate: bool = Form(False),
-    validate: bool = Form(False),
+    run_validation: bool = Form(False),
 ):
     run_id = str(uuid.uuid4())
     
@@ -585,7 +585,7 @@ async def start_run_local(
         "skip_analysis": skip_analysis,
         "categorize": categorize,
         "translate": translate,
-        "validate": validate,
+        "validate": run_validation,
         "run_id": run_id,
     }
 
