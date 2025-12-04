@@ -64,12 +64,14 @@ class Visualizer:
                             edges.add((node_name, dep, "CALLS"))
 
                     # 3. Mapping Dependencies (Mapping -> Table)
-                    if "sources" in info:
+                    if "sources" in info and info["sources"]:
                         for src in info["sources"]:
-                            edges.add((src, node_name, "SOURCE"))
-                    if "targets" in info:
+                            if src:  # Skip None values
+                                edges.add((src, node_name, "SOURCE"))
+                    if "targets" in info and info["targets"]:
                         for tgt in info["targets"]:
-                            edges.add((node_name, tgt, "TARGET"))
+                            if tgt:  # Skip None values
+                                edges.add((node_name, tgt, "TARGET"))
 
             except json.JSONDecodeError:
                 logger.warning(f"Could not parse JSON for {filename}")

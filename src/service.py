@@ -31,8 +31,13 @@ class LocalBlob:
         self.name = os.path.basename(path)
 
     def download_as_text(self) -> str:
-        with open(self._path, "r", encoding="utf-8") as f:
-            return f.read()
+        # Try UTF-8 first, fall back to latin-1 for files with special characters
+        try:
+            with open(self._path, "r", encoding="utf-8") as f:
+                return f.read()
+        except UnicodeDecodeError:
+            with open(self._path, "r", encoding="latin-1") as f:
+                return f.read()
 
 
 def run_pipeline(config: dict, status_callback: StatusCallback = None) -> dict:
@@ -164,6 +169,7 @@ def run_pipeline(config: dict, status_callback: StatusCallback = None) -> dict:
 
             gcs_uris["analysis_results_uri"] = _upload(analysis_json_path, "analysis_results.json")
             gcs_uris["analysis_report_uri"] = _upload(analysis_report_path, "analysis_report.txt")
+            gcs_uris["dependency_graph_uri"] = _upload(os.path.join(output_dir, "dependency_graph.mmd"), "dependency_graph.mmd")
             gcs_uris["categorization_uri"] = _upload(categorization_json_path, "data_categorization.json")
             gcs_uris["categorization_report_uri"] = _upload(categorization_report_path, "categorization_report.txt")
             gcs_uris["validation_tests_uri"] = _upload(validation_tests_path, "validation_tests.json")

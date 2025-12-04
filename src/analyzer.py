@@ -24,6 +24,15 @@ class AnalysisEngine:
             
             try:
                 content = blob.download_as_text()
+            except UnicodeDecodeError:
+                # Try with latin-1 encoding for files with special characters
+                try:
+                    content = blob.download_as_bytes().decode('latin-1')
+                    logger.info(f"Read {blob.name} with latin-1 encoding")
+                except Exception as e:
+                    logger.error(f"Failed to read {blob.name} with fallback encoding: {e}")
+                    content = None
+                    continue
             except Exception as e:
                 logger.error(f"Failed to read {blob.name}: {e}")
                 content = None
