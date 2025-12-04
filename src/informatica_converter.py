@@ -22,6 +22,10 @@ class InformaticaConverter:
         os.makedirs(staging_dir, exist_ok=True)
         os.makedirs(intermediate_dir, exist_ok=True)
         
+        # Track shared objects for documentation
+        shared_objects = []
+        converted_count = 0
+        
         # Process each Informatica XML
         for filename, data in analysis_results.items():
             if data.get('type') != 'informatica_xml':
@@ -40,6 +44,17 @@ class InformaticaConverter:
                 
                 mapping_name = mapping_info.get("mapping_name")
                 
+                # Check if this is a shared/reusable object (not a mapping)
+                if self._is_shared_object(mapping_name, mapping_info):
+                    shared_objects.append({
+                        "filename": filename,
+                        "description": mapping_name,
+                        "transformations": mapping_info.get("transformations", []),
+                        "logic_summary": mapping_info.get("logic_summary", "")
+                    })
+                    logger.info(f"Found shared object in {filename}: {mapping_name}")
+                    continue
+                
                 if not mapping_name or mapping_name == "null":
                     logger.info(f"Skipping {filename} - no mapping name found")
                     continue
@@ -48,12 +63,82 @@ class InformaticaConverter:
                 
                 # Generate transformation SQL using LLM
                 self._generate_transformation_sql(filename, mapping_info, categorization_results)
+                converted_count += 1
                 
             except Exception as e:
                 logger.warning(f"Failed to convert {filename}: {e}")
                 continue
         
-        logger.info("Informatica transformation conversion complete.")
+        # Generate shared objects reference document
+        if shared_objects:
+            self._generate_shared_objects_doc(shared_objects)
+        
+        logger.info(f"Informatica conversion complete: {converted_count} mappings converted, {len(shared_objects)} shared objects documented.")
+    
+    def _is_shared_object(self, mapping_name, mapping_info):
+        """Detect if this is a shared/reusable object rather than a mapping."""
+        if not mapping_name:
+            return False
+        
+        # Common indicators of shared objects
+        shared_indicators = [
+            "not found",
+            "shared object",
+            "reusable",
+            "folder",
+            "n/a",
+            "this xml"
+        ]
+        
+        mapping_name_lower = mapping_name.lower()
+        for indicator in shared_indicators:
+            if indicator in mapping_name_lower:
+                return True
+        
+        # Also check if sources and targets are both empty/null (typical for shared objects)
+        sources = mapping_info.get("sources") or []
+        targets = mapping_info.get("targets") or []
+        if not sources and not targets:
+            return True
+        
+        return False
+    
+    def _generate_shared_objects_doc(self, shared_objects):
+        """Generate a reference document for shared/reusable Informatica objects."""
+        doc_path = os.path.join(self.output_dir, "informatica_shared_objects.md")
+        
+        with open(doc_path, "w") as f:
+            f.write("# Informatica Shared Objects Reference\n\n")
+            f.write("This document lists reusable transformations and shared objects found in the Informatica exports.\n")
+            f.write("These are not converted to Dataform SQLX as they are components used by mappings, not complete ETL flows.\n\n")
+            f.write("---\n\n")
+            
+            for idx, obj in enumerate(shared_objects, 1):
+                f.write(f"## {idx}. {obj['filename']}\n\n")
+                
+                if obj['description']:
+                    f.write(f"**Description**: {obj['description']}\n\n")
+                
+                if obj['transformations']:
+                    f.write("**Transformations**:\n")
+                    for t in obj['transformations']:
+                        if isinstance(t, dict):
+                            t_name = t.get('name', t.get('type', str(t)))
+                            t_type = t.get('type', '')
+                            f.write(f"- {t_name}")
+                            if t_type:
+                                f.write(f" ({t_type})")
+                            f.write("\n")
+                        else:
+                            f.write(f"- {t}\n")
+                    f.write("\n")
+                
+                if obj['logic_summary']:
+                    f.write(f"**Logic Summary**:\n{obj['logic_summary']}\n\n")
+                
+                f.write("---\n\n")
+        
+        logger.info(f"Generated shared objects reference: {doc_path}")
 
     def _generate_transformation_sql(self, filename, mapping_info, categorization_results):
         """Generates transformation SQL for an Informatica mapping using LLM."""
