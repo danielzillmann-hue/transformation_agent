@@ -1,12 +1,16 @@
 import json
 import os
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from src.llm_client import LLMClient
 from src.prompts import VALIDATION_TEST_PROMPT
 from src.json_utils import safe_parse_json
 
 logger = logging.getLogger(__name__)
+
+# Max parallel LLM calls for validation
+MAX_WORKERS = int(os.getenv("VALIDATION_MAX_WORKERS", "5"))
 
 
 class ValidationEngine:
@@ -15,8 +19,37 @@ class ValidationEngine:
         self.llm_client = LLMClient(project_id)
         os.makedirs(output_dir, exist_ok=True)
 
+    def _generate_tests_for_file(self, filename, data):
+        """Generate validation tests for a single file - designed for parallel execution."""
+        analysis_text = data.get("analysis", "")
+        if not analysis_text or analysis_text.startswith("Error"):
+            return None
+
+        # Use safe JSON parsing with repair
+        info = safe_parse_json(analysis_text)
+        if not info:
+            logger.warning(f"Skipping {filename} for validation, could not parse JSON")
+            return None
+
+        # Determine object type for prompt context
+        object_type = "table" if "table_name" in info else "procedure" if "procedure_name" in info else "mapping" if "mapping_name" in info else "unknown"
+
+        prompt = VALIDATION_TEST_PROMPT.format(object_type=object_type, analysis=json.dumps(info, indent=2))
+        response = self.llm_client.generate_content(prompt)
+
+        # Use safe JSON parsing with repair for LLM response
+        tests = safe_parse_json(response)
+        if not tests:
+            logger.warning(f"Failed to parse validation tests for {filename}")
+            return None
+        
+        return filename, {
+            "object_type": object_type,
+            "tests": tests,
+        }
+
     def validate(self, analysis_results, status_callback=None):
-        """Generates validation test definitions from analysis results.
+        """Generates validation test definitions from analysis results in parallel.
 
         This initial implementation does not execute tests against Sybase/BigQuery.
         It focuses on generating structured test cases and a human-readable report
@@ -28,34 +61,25 @@ class ValidationEngine:
             status_callback("validation", "Generating validation test cases...", 1, 3)
 
         test_definitions = {}
-
-        for filename, data in analysis_results.items():
-            analysis_text = data.get("analysis", "")
-            if not analysis_text or analysis_text.startswith("Error"):
-                continue
-
-            # Use safe JSON parsing with repair
-            info = safe_parse_json(analysis_text)
-            if not info:
-                logger.warning(f"Skipping {filename} for validation, could not parse JSON")
-                continue
-
-            # Determine object type for prompt context
-            object_type = "table" if "table_name" in info else "procedure" if "procedure_name" in info else "mapping" if "mapping_name" in info else "unknown"
-
-            prompt = VALIDATION_TEST_PROMPT.format(object_type=object_type, analysis=json.dumps(info, indent=2))
-            response = self.llm_client.generate_content(prompt)
-
-            # Use safe JSON parsing with repair for LLM response
-            tests = safe_parse_json(response)
-            if not tests:
-                logger.warning(f"Failed to parse validation tests for {filename}")
-                continue
-            
-            test_definitions[filename] = {
-                "object_type": object_type,
-                "tests": tests,
+        total_files = len(analysis_results)
+        completed = 0
+        
+        # Use ThreadPoolExecutor for parallel LLM calls
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            future_to_file = {
+                executor.submit(self._generate_tests_for_file, filename, data): filename
+                for filename, data in analysis_results.items()
             }
+            
+            for future in as_completed(future_to_file):
+                filename = future_to_file[future]
+                completed += 1
+                try:
+                    result = future.result()
+                    if result:
+                        test_definitions[result[0]] = result[1]
+                except Exception as e:
+                    logger.error(f"Failed to generate tests for {filename}: {e}")
 
         if status_callback:
             status_callback("validation", "Saving validation results...", 2, 3)

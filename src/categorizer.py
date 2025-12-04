@@ -117,65 +117,79 @@ Focus on domains that are:
             ]
 
     def _categorize_fields(self, analysis_results, domains):
-        """Categorize each field in each table."""
+        """Categorize fields using batched LLM calls for efficiency."""
         logger.info("Categorizing fields...")
         
         categorizations = {}
         domain_list = "\n".join([f"- {d['domain_name']}: {d['description']}" for d in domains])
         
+        # Collect all tables first
+        tables_to_categorize = []
         for filename, data in analysis_results.items():
             analysis = data.get('analysis', '')
             if 'table_name' not in analysis:
                 continue
             
             try:
-                # Extract table info
-                clean_analysis = analysis.replace("```json", "").replace("```", "").strip()
-                if "{" in clean_analysis:
-                    start = clean_analysis.find("{")
-                    end = clean_analysis.rfind("}") + 1
-                    clean_analysis = clean_analysis[start:end]
+                info = safe_parse_json(analysis)
+                if not info:
+                    continue
                 
-                info = json.loads(clean_analysis)
                 table_name = info.get("table_name")
                 columns = info.get("columns", [])
                 
-                if not table_name or not columns:
-                    continue
-                
-                logger.info(f"Categorizing {table_name}...")
-                
-                # Create categorization prompt
-                prompt = f"""Categorize each field in the following table to one of the business domains.
+                if table_name and columns:
+                    # Only include column names for efficiency
+                    col_names = [c.get("name", "") for c in columns if c.get("name")]
+                    tables_to_categorize.append({
+                        "table": table_name,
+                        "columns": col_names
+                    })
+            except Exception as e:
+                logger.warning(f"Failed to parse {filename}: {e}")
+                continue
+        
+        if not tables_to_categorize:
+            return categorizations
+        
+        # Batch tables into groups of 5-10 for efficient LLM calls
+        BATCH_SIZE = 8
+        for i in range(0, len(tables_to_categorize), BATCH_SIZE):
+            batch = tables_to_categorize[i:i + BATCH_SIZE]
+            batch_names = [t['table'] for t in batch]
+            logger.info(f"Categorizing batch {i//BATCH_SIZE + 1}: {', '.join(batch_names)}")
+            
+            # Create batched prompt
+            prompt = f"""Categorize each column in the following tables to one of the business domains.
 
-Table: {table_name}
-Columns: {json.dumps(columns, indent=2)}
+Tables and their columns:
+{json.dumps(batch, indent=2)}
 
 Business Domains:
 {domain_list}
 
-Return ONLY a JSON object mapping each column name to its domain:
+Return ONLY a JSON object with this structure:
 {{
-  "column_name": "Domain Name",
-  ...
+  "TableName1": {{
+    "column1": "Domain Name",
+    "column2": "Domain Name"
+  }},
+  "TableName2": {{
+    "column1": "Domain Name"
+  }}
 }}
 """
-
+            
+            try:
                 response = self.llm_client.generate_content(prompt)
+                batch_result = safe_parse_json(response)
                 
-                # Parse response
-                clean_response = response.replace("```json", "").replace("```", "").strip()
-                if "{" in clean_response:
-                    start = clean_response.find("{")
-                    end = clean_response.rfind("}") + 1
-                    clean_response = clean_response[start:end]
-                
-                field_domains = json.loads(clean_response)
-                categorizations[table_name] = field_domains
-                
+                if batch_result:
+                    categorizations.update(batch_result)
+                else:
+                    logger.warning(f"Failed to parse batch response for tables: {batch_names}")
             except Exception as e:
-                logger.warning(f"Failed to categorize {filename}: {e}")
-                continue
+                logger.warning(f"Failed to categorize batch: {e}")
         
         return categorizations
 
