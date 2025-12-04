@@ -2,7 +2,19 @@
 
 ## Overview
 
-The **Transformation Agent** is an AI-powered tool that automates the migration of legacy ETL pipelines from **Sybase/Informatica** to **Google Cloud Platform (BigQuery/Dataform)**. It analyzes source schemas, stored procedures, and Informatica mappings, then generates equivalent Dataform SQLX files ready for deployment.
+The **Transformation Agent** is an AI-powered tool that automates the migration of legacy ETL pipelines from **multiple source database systems** to **Google Cloud Platform (BigQuery/Dataform)**. It analyzes source schemas, stored procedures, and ETL mappings, then generates equivalent Dataform SQLX files ready for deployment.
+
+### Supported Source Systems
+
+| Source Database | ETL Tool Support |
+|-----------------|------------------|
+| Sybase ASE | Informatica PowerCenter |
+| Oracle | ODI, Informatica |
+| SQL Server | SSIS, Informatica |
+| MySQL / MariaDB | Pentaho, Informatica |
+| PostgreSQL | dbt, Informatica |
+| Teradata | Informatica, BTEQ |
+| Snowflake | dbt |
 
 ---
 
@@ -10,16 +22,17 @@ The **Transformation Agent** is an AI-powered tool that automates the migration 
 
 1. [Architecture](#architecture)
 2. [Pipeline Stages](#pipeline-stages)
-3. [Input Requirements](#input-requirements)
-4. [Output Artifacts](#output-artifacts)
-5. [Running the Pipeline](#running-the-pipeline)
-6. [Configuration Options](#configuration-options)
-7. [Generated Dataform Project Structure](#generated-dataform-project-structure)
-8. [SCD Type Detection](#scd-type-detection)
-9. [Informatica Mapping Conversion](#informatica-mapping-conversion)
-10. [Validation Tests](#validation-tests)
-11. [Troubleshooting](#troubleshooting)
-12. [Post-Migration Steps](#post-migration-steps)
+3. [Source System Configuration](#source-system-configuration)
+4. [Input Requirements](#input-requirements)
+5. [Output Artifacts](#output-artifacts)
+6. [Running the Pipeline](#running-the-pipeline)
+7. [Configuration Options](#configuration-options)
+8. [Generated Dataform Project Structure](#generated-dataform-project-structure)
+9. [SCD Type Detection](#scd-type-detection)
+10. [Informatica Mapping Conversion](#informatica-mapping-conversion)
+11. [Validation Tests](#validation-tests)
+12. [Troubleshooting](#troubleshooting)
+13. [Post-Migration Steps](#post-migration-steps)
 
 ---
 
@@ -49,6 +62,7 @@ The **Transformation Agent** is an AI-powered tool that automates the migration 
 - **Google Cloud Storage** - Input/output file storage
 - **FastAPI** - Web interface for running migrations
 - **Dataform** - Target transformation framework
+- **Source Adapters** - Configurable per-database type mappings and prompts
 
 ---
 
@@ -69,15 +83,104 @@ The **Transformation Agent** is an AI-powered tool that automates the migration 
 - **Batched**: 8 tables per LLM call for efficiency
 
 ### 4. Translation
-- Converts Sybase DDL to BigQuery Dataform SQLX
+- Converts source DDL to BigQuery Dataform SQLX
+- Uses source-specific type mappings from adapter config
 - Detects SCD Type 1 vs Type 2 tables
 - Generates incremental loading patterns for fact tables
-- Converts Informatica mappings to transformation SQL
+- Converts Informatica mappings to transformation SQL with function mapping hints
 
 ### 5. Validation
 - Generates test case definitions for data quality
 - Creates human-readable validation report
 - **Parallelized**: 5 concurrent LLM calls
+
+---
+
+## Source System Configuration
+
+The tool uses YAML configuration files to define source-specific settings for each database system.
+
+### Config File Location
+
+```
+config/source_systems/
+├── _template.yaml    # Template for creating custom configs
+├── sybase.yaml       # Sybase ASE (default)
+├── oracle.yaml       # Oracle Database
+├── sqlserver.yaml    # SQL Server / Azure SQL
+├── mysql.yaml        # MySQL / MariaDB
+├── postgres.yaml     # PostgreSQL
+├── teradata.yaml     # Teradata
+└── snowflake.yaml    # Snowflake
+```
+
+### What Each Config Contains
+
+| Section | Description |
+|---------|-------------|
+| `type_mappings` | Source → BigQuery data type conversions |
+| `file_patterns` | How to detect DDL, procedures, ETL files |
+| `table_classification` | Dimension/fact/staging prefixes |
+| `scd_detection` | Type 1 and Type 2 table lists, column indicators |
+| `incremental_patterns` | Regex patterns for incremental tables |
+| `domain_mapping` | Business domain → BigQuery dataset mapping |
+| `function_mappings` | Source SQL functions → BigQuery equivalents |
+| `prompts` | Custom LLM prompts for analysis |
+
+### Creating a Custom Config
+
+1. Copy `_template.yaml` to a new file (e.g., `my_database.yaml`)
+2. Fill in the required sections:
+   ```yaml
+   name: "My Custom Database"
+   
+   type_mappings:
+     INT: INT64
+     VARCHAR: STRING
+     DATETIME: TIMESTAMP
+     # Add your type mappings...
+   
+   file_patterns:
+     ddl:
+       extensions: [".sql", ".ddl"]
+   ```
+3. Save the file - it will automatically appear in the UI dropdown
+
+### Example: Oracle Type Mappings
+
+```yaml
+# From config/source_systems/oracle.yaml
+type_mappings:
+  NUMBER: NUMERIC
+  VARCHAR2: STRING
+  CLOB: STRING
+  DATE: TIMESTAMP        # Oracle DATE includes time
+  RAW: BYTES
+  BLOB: BYTES
+  ROWID: STRING
+  XMLTYPE: STRING
+```
+
+### Example: Function Mappings for SQL Conversion
+
+```yaml
+# From config/source_systems/oracle.yaml
+oracle_specific:
+  function_mappings:
+    NVL: IFNULL
+    NVL2: "IF(condition, value_if_not_null, value_if_null)"
+    DECODE: CASE
+    SYSDATE: CURRENT_TIMESTAMP
+    TO_DATE: PARSE_TIMESTAMP
+    TO_CHAR: FORMAT_TIMESTAMP
+    TRUNC: DATE_TRUNC
+    ADD_MONTHS: DATE_ADD
+    MONTHS_BETWEEN: DATE_DIFF
+    ROWNUM: ROW_NUMBER
+    LISTAGG: STRING_AGG
+```
+
+These function mappings are passed to the LLM when converting Informatica mappings, helping it produce accurate BigQuery SQL.
 
 ---
 
@@ -87,9 +190,11 @@ The **Transformation Agent** is an AI-powered tool that automates the migration 
 
 | File Type | Extension | Description |
 |-----------|-----------|-------------|
-| Sybase DDL | `.sql` | CREATE TABLE, ALTER TABLE statements |
-| Stored Procedures | `.sql` | Sybase stored procedures (prefixed with naming convention) |
+| DDL Scripts | `.sql`, `.ddl` | CREATE TABLE, ALTER TABLE statements |
+| Stored Procedures | `.sql`, `.prc`, `.pkg` | Database-specific procedures |
 | Informatica Mappings | `.XML` | PowerCenter mapping exports |
+| SSIS Packages | `.dtsx` | SQL Server Integration Services (future) |
+| dbt Models | `.sql`, `.yml` | dbt model definitions (future) |
 
 ### GCS Bucket Structure
 
@@ -103,11 +208,13 @@ gs://your-bucket/
 
 ### Naming Conventions
 
-The tool uses naming conventions to classify files:
+The tool uses naming conventions (configurable per source system) to classify files:
 - `D_*` or `dim_*` → Dimension tables
 - `F_*` or `fact_*` → Fact tables
 - `m_*.XML` → Informatica mappings
 - `wkf_*.XML` → Informatica workflows (skipped)
+
+These patterns are defined in each source system's YAML config under `table_classification`.
 
 ---
 
@@ -140,18 +247,28 @@ gs://your-archive-bucket/migration_YYYYMMDD_HHMMSS/
 ### Web Interface
 
 1. Navigate to the deployed Cloud Run URL
-2. Select source GCS bucket and archive bucket
-3. Configure options (validation, project ID)
-4. Click "Start Migration"
-5. Monitor progress via SSE updates
+2. **Select Source Database System** from dropdown (Sybase, Oracle, SQL Server, etc.)
+3. Select source GCS bucket and archive bucket
+4. Configure options (validation, project ID)
+5. Click "Start Migration"
+6. Monitor progress via SSE updates
 
 ### Command Line
 
 ```bash
 python main.py \
+  --source-system oracle \
   --bucket your-source-bucket \
   --project dan-sandpit \
   --output ./output
+```
+
+### Available Source Systems
+
+```bash
+# List available source systems
+python -c "from src.adapters.registry import get_registry; print(get_registry().list_available())"
+# Output: ['mysql', 'oracle', 'postgres', 'snowflake', 'sqlserver', 'sybase', 'teradata']
 ```
 
 ### Environment Variables
@@ -168,30 +285,57 @@ python main.py \
 
 ## Configuration Options
 
-### Custom Type Mappings
+### Source System Selection
 
-Create `gs://your-bucket/config/type_mappings.txt`:
+The source system determines:
+- Data type mappings
+- File detection patterns
+- SCD detection rules
+- Function mappings for SQL conversion
+- Custom LLM prompts
+
+### Custom Type Mappings (Runtime Override)
+
+For runtime overrides without editing YAML configs, create `gs://your-bucket/config/type_mappings.txt`:
 ```
-# Sybase type -> BigQuery type
+# Source type -> BigQuery type
 MONEY=NUMERIC(19,4)
 SMALLMONEY=NUMERIC(10,4)
 IMAGE=BYTES
 ```
 
-### Default Type Mappings
+### Type Mappings by Source System
 
-| Sybase Type | BigQuery Type |
+**Sybase ASE:**
+| Source Type | BigQuery Type |
 |-------------|---------------|
 | INT, INTEGER, SMALLINT, TINYINT, BIGINT | INT64 |
 | DECIMAL, NUMERIC | NUMERIC |
 | MONEY | NUMERIC(19,4) |
-| FLOAT, REAL | FLOAT64 |
-| CHAR, VARCHAR, TEXT, NCHAR, NVARCHAR | STRING |
-| DATETIME, SMALLDATETIME | TIMESTAMP |
-| DATE | DATE |
-| TIME | TIME |
+| CHAR, VARCHAR, TEXT | STRING |
+| DATETIME | TIMESTAMP |
 | BIT | BOOL |
-| BINARY, VARBINARY, IMAGE | BYTES |
+
+**Oracle:**
+| Source Type | BigQuery Type |
+|-------------|---------------|
+| NUMBER | NUMERIC |
+| VARCHAR2, CLOB | STRING |
+| DATE | TIMESTAMP |
+| RAW, BLOB | BYTES |
+| ROWID | STRING |
+
+**SQL Server:**
+| Source Type | BigQuery Type |
+|-------------|---------------|
+| INT, BIGINT, SMALLINT | INT64 |
+| DECIMAL, MONEY | NUMERIC |
+| VARCHAR, NVARCHAR, TEXT | STRING |
+| DATETIME, DATETIME2 | TIMESTAMP |
+| UNIQUEIDENTIFIER | STRING |
+| BIT | BOOL |
+
+See `config/source_systems/*.yaml` for complete mappings.
 
 ---
 
@@ -288,6 +432,25 @@ config {
   - Source table references using `${ref('table_name')}`
   - Transformation logic as CTEs
   - Target table configuration
+  - **Source-specific function conversions** (e.g., Oracle `NVL` → BigQuery `IFNULL`)
+
+### Source-Aware SQL Conversion
+
+The Informatica converter uses the selected source system's function mappings to help the LLM produce accurate BigQuery SQL. For example, when converting an Oracle-based mapping:
+
+```
+**Source Database**: Oracle
+
+**Function Mappings** (used for conversion):
+{
+  "NVL": "IFNULL",
+  "DECODE": "CASE",
+  "SYSDATE": "CURRENT_TIMESTAMP",
+  "TO_DATE": "PARSE_TIMESTAMP",
+  "SUBSTR": "SUBSTRING",
+  "INSTR": "STRPOS"
+}
+```
 
 ### What Gets Documented (Not Converted)
 
@@ -312,8 +475,12 @@ config {
   dependencies: ["D_Department", "D_Promotion_Details", "D_CASINOLOCATIONDET"]
 }
 
+-- Note: Oracle functions converted to BigQuery equivalents
 WITH source_data AS (
-  SELECT ...
+  SELECT 
+    IFNULL(d.dept_name, 'Unknown') as dept_name,  -- Was: NVL(d.dept_name, 'Unknown')
+    PARSE_TIMESTAMP('%Y-%m-%d', p.promo_date) as promo_date,  -- Was: TO_DATE(p.promo_date, 'YYYY-MM-DD')
+    ...
   FROM ${ref('D_Department')} d
   JOIN ${ref('D_Promotion_Details')} p ON ...
 )
@@ -420,10 +587,78 @@ For issues or questions:
 1. Check Cloud Run logs for detailed error messages
 2. Review `analysis_results.json` for LLM interpretation issues
 3. Consult `informatica_shared_objects.md` for undocumented components
+4. Check source system config in `config/source_systems/` for type mapping issues
 
 ---
 
-## Appendix: Dependency Graph
+## Appendix A: Adding a New Source System
+
+### Step 1: Create Config File
+
+```bash
+cp config/source_systems/_template.yaml config/source_systems/my_database.yaml
+```
+
+### Step 2: Define Type Mappings
+
+```yaml
+name: "My Database"
+description: "My Database to BigQuery migration"
+
+type_mappings:
+  INT: INT64
+  VARCHAR: STRING
+  TIMESTAMP: TIMESTAMP
+  # Add all your database's types...
+```
+
+### Step 3: Define File Patterns
+
+```yaml
+file_patterns:
+  ddl:
+    extensions: [".sql", ".ddl"]
+    prefixes: ["D_", "F_"]  # Optional
+  procedures:
+    extensions: [".sql", ".prc"]
+    prefixes: ["sp_", "usp_"]
+  etl_exports:
+    extensions: [".xml"]
+    tool: "informatica"  # or "ssis", "odi", "dbt"
+```
+
+### Step 4: Define SCD Rules
+
+```yaml
+scd_detection:
+  type2_tables:
+    - customer
+    - employee
+  type1_tables:
+    - status
+    - type
+    - date
+  type2_column_indicators:
+    - effective_date
+    - valid_from
+    - is_current
+```
+
+### Step 5: Add Function Mappings (Optional)
+
+```yaml
+function_mappings:
+  MY_FUNC: BQ_EQUIVALENT
+  CUSTOM_DATE: DATE_TRUNC
+```
+
+### Step 6: Test
+
+The new config will automatically appear in the UI dropdown and CLI options.
+
+---
+
+## Appendix B: Dependency Graph
 
 The tool generates a Mermaid diagram (`dependency_graph.mmd`) showing:
 - **Tables** (blue) - Dimension and fact tables
@@ -435,3 +670,40 @@ View in any Mermaid-compatible viewer or paste into:
 - GitHub markdown
 - Confluence
 - https://mermaid.live
+
+---
+
+## Appendix C: Cloud Run Deployment Notes
+
+### Config Files in Docker
+
+The source system configs are bundled into the Docker image at build time:
+
+```dockerfile
+COPY config/ /app/config/
+```
+
+### Customizing Configs for Deployment
+
+**Option 1: Edit before building**
+```bash
+# Edit config files locally
+vim config/source_systems/sybase.yaml
+
+# Rebuild and deploy
+gcloud builds submit --tag gcr.io/PROJECT/transformation-agent
+gcloud run deploy ...
+```
+
+**Option 2: Mount from GCS (requires code change)**
+```python
+# In registry.py, add GCS config loading
+AdapterRegistry.set_config_dir("gs://my-bucket/configs/")
+```
+
+### Environment Variables for Cloud Run
+
+```bash
+gcloud run deploy transformation-agent \
+  --set-env-vars="ANALYSIS_MAX_WORKERS=10,VALIDATION_MAX_WORKERS=10"
+```
