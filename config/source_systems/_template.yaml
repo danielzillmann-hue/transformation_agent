@@ -1,0 +1,235 @@
+# =============================================================================
+# CUSTOM SOURCE SYSTEM TEMPLATE
+# =============================================================================
+# Copy this file and rename it to your source system name (e.g., my_database.yaml)
+# Fill in the sections below based on your source database
+# 
+# REQUIRED sections: name, type_mappings, file_patterns
+# OPTIONAL sections: Everything else (will use sensible defaults)
+# =============================================================================
+
+name: "My Custom Database"
+description: "Description of your source database system"
+version: "1.0"
+
+# =============================================================================
+# DATA TYPE MAPPINGS (REQUIRED)
+# =============================================================================
+# Map your source database types to BigQuery types
+# Common BigQuery types: INT64, FLOAT64, NUMERIC, STRING, BYTES, BOOL, 
+#                        DATE, TIME, TIMESTAMP, JSON, GEOGRAPHY, ARRAY<T>
+type_mappings:
+  # Integer types
+  INT: INT64
+  INTEGER: INT64
+  SMALLINT: INT64
+  BIGINT: INT64
+  
+  # Decimal types
+  DECIMAL: NUMERIC
+  NUMERIC: NUMERIC
+  
+  # Floating point
+  FLOAT: FLOAT64
+  DOUBLE: FLOAT64
+  REAL: FLOAT64
+  
+  # String types
+  CHAR: STRING
+  VARCHAR: STRING
+  TEXT: STRING
+  
+  # Date/Time types
+  DATE: DATE
+  TIME: TIME
+  DATETIME: TIMESTAMP
+  TIMESTAMP: TIMESTAMP
+  
+  # Binary types
+  BINARY: BYTES
+  BLOB: BYTES
+  
+  # Boolean
+  BOOLEAN: BOOL
+  BIT: BOOL
+  
+  # JSON (if supported)
+  JSON: JSON
+  
+  # Add your custom types below:
+  # MY_CUSTOM_TYPE: STRING
+
+# =============================================================================
+# FILE DETECTION PATTERNS (REQUIRED)
+# =============================================================================
+file_patterns:
+  ddl:
+    extensions: [".sql", ".ddl"]
+    prefixes: []                    # e.g., ["D_", "F_", "DIM_", "FACT_"]
+    indicators: []                  # e.g., ["CREATE TABLE"]
+    
+  procedures:
+    extensions: [".sql"]
+    prefixes: []                    # e.g., ["sp_", "usp_", "fn_"]
+    indicators: []                  # e.g., ["CREATE PROCEDURE", "CREATE FUNCTION"]
+    
+  etl_exports:
+    extensions: [".xml", ".json"]
+    prefixes: []
+    tool: ""                        # e.g., "informatica", "ssis", "odi", "dbt"
+
+# =============================================================================
+# TABLE CLASSIFICATION (OPTIONAL)
+# =============================================================================
+table_classification:
+  dimension_prefixes: ["dim_", "d_"]
+  fact_prefixes: ["fact_", "f_"]
+  staging_prefixes: ["stg_", "stage_", "tmp_"]
+  bridge_prefixes: ["bridge_", "b_"]
+
+# =============================================================================
+# SCD TYPE DETECTION (OPTIONAL)
+# =============================================================================
+scd_detection:
+  # Tables that should ALWAYS track history (Type 2)
+  # Typically tables representing people or entities that change over time
+  type2_tables:
+    - customer
+    - employee
+    - member
+    - account
+    # Add your Type 2 tables here
+  
+  # Tables that should NEVER track history (Type 1)
+  # Typically reference/lookup tables
+  type1_tables:
+    - date
+    - time
+    - status
+    - type
+    - category
+    - currency
+    - country
+    # Add your Type 1 tables here
+  
+  # Column names that indicate Type 2 (history tracking)
+  type2_column_indicators:
+    - effective_date
+    - expiry_date
+    - valid_from
+    - valid_to
+    - is_current
+    - current_flag
+    - version
+  
+  # Column names that indicate Type 1 (simple lookup)
+  type1_column_indicators:
+    - code
+    - description
+    - name
+
+# =============================================================================
+# INCREMENTAL LOADING PATTERNS (OPTIONAL)
+# =============================================================================
+# Regex patterns for tables that should use incremental loading
+incremental_patterns:
+  - "^fact_"
+  - "^f_"
+  - "_fact$"
+  - "^stg_"
+  - "_log$"
+  - "_history$"
+  - "_transaction"
+  - "_event"
+
+# =============================================================================
+# DOMAIN TO DATASET MAPPING (OPTIONAL)
+# =============================================================================
+# Map business domains to BigQuery dataset names
+domain_mapping:
+  "Customer": bq_customer
+  "Sales": bq_sales
+  "Finance": bq_finance
+  "Operations": bq_operations
+  "Reference": bq_reference
+  default: bq_staging
+
+# =============================================================================
+# SOURCE-SPECIFIC FUNCTION MAPPINGS (OPTIONAL)
+# =============================================================================
+# Map source database functions to BigQuery equivalents
+# This helps the LLM convert SQL more accurately
+function_mappings:
+  # Date/Time
+  NOW: CURRENT_TIMESTAMP
+  GETDATE: CURRENT_TIMESTAMP
+  SYSDATE: CURRENT_TIMESTAMP
+  
+  # Null handling
+  ISNULL: IFNULL
+  NVL: IFNULL
+  COALESCE: COALESCE
+  
+  # String functions
+  LEN: LENGTH
+  CHARINDEX: STRPOS
+  SUBSTRING: SUBSTRING
+  
+  # Add your custom function mappings here:
+  # MY_FUNCTION: BQ_EQUIVALENT
+
+# =============================================================================
+# ANALYSIS PROMPTS (OPTIONAL)
+# =============================================================================
+# Custom prompts for the LLM to analyze your source files
+# If not provided, default prompts will be used
+prompts:
+  schema_analysis: |
+    You are a database expert. Analyze the following DDL from {name}.
+    
+    Extract the following information in JSON format:
+    - table_name: The name of the table
+    - columns: Array of {name, type, nullable, default_value}
+    - primary_keys: Array of column names forming the primary key
+    - foreign_keys: Array of {columns, references_table, references_columns}
+    - indexes: Array of {name, columns, is_unique}
+    - description: Brief description of the table's purpose
+    
+    DDL Content:
+    {content}
+    
+  procedure_analysis: |
+    You are a database expert. Analyze the following stored procedure from {name}.
+    
+    Extract the following information in JSON format:
+    - procedure_name: Name of the procedure
+    - parameters: Array of {name, type, direction}
+    - tables_read: Array of table names read
+    - tables_modified: Array of table names modified
+    - logic_summary: Brief description of what the procedure does
+    
+    Procedure Content:
+    {content}
+    
+  etl_analysis: |
+    You are an ETL expert. Analyze the following ETL definition.
+    
+    Extract the following information in JSON format:
+    - job_name: Name of the ETL job
+    - sources: Array of source tables/files
+    - targets: Array of target tables
+    - transformations: Array of transformation steps
+    - logic_summary: Brief description of the ETL logic
+    
+    ETL Content:
+    {content}
+
+# =============================================================================
+# NOTES
+# =============================================================================
+# 1. Type mappings are case-insensitive
+# 2. File patterns support glob syntax
+# 3. SCD detection uses exact match (case-insensitive) for table names
+# 4. Incremental patterns use regex
+# 5. Function mappings help the LLM but are not automatically applied
+# 6. Custom prompts override the defaults completely

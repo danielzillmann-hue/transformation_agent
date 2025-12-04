@@ -1,0 +1,364 @@
+# MySQL / MariaDB to BigQuery Migration Config
+# Supports MySQL 5.7, 8.0+, MariaDB 10.x
+
+name: "MySQL"
+description: "MySQL / MariaDB to BigQuery migration"
+version: "1.0"
+
+# =============================================================================
+# DATA TYPE MAPPINGS
+# =============================================================================
+type_mappings:
+  # Integer types
+  TINYINT: INT64
+  SMALLINT: INT64
+  MEDIUMINT: INT64
+  INT: INT64
+  INTEGER: INT64
+  BIGINT: INT64
+  
+  # Boolean (MySQL BOOL is alias for TINYINT(1))
+  BOOL: BOOL
+  BOOLEAN: BOOL
+  
+  # Decimal types
+  DECIMAL: NUMERIC
+  NUMERIC: NUMERIC
+  DEC: NUMERIC
+  FIXED: NUMERIC
+  
+  # Floating point
+  FLOAT: FLOAT64
+  DOUBLE: FLOAT64
+  "DOUBLE PRECISION": FLOAT64
+  REAL: FLOAT64
+  
+  # String types
+  CHAR: STRING
+  VARCHAR: STRING
+  TINYTEXT: STRING
+  TEXT: STRING
+  MEDIUMTEXT: STRING
+  LONGTEXT: STRING
+  
+  # Binary string types
+  BINARY: BYTES
+  VARBINARY: BYTES
+  TINYBLOB: BYTES
+  BLOB: BYTES
+  MEDIUMBLOB: BYTES
+  LONGBLOB: BYTES
+  
+  # Date/Time types
+  DATE: DATE
+  TIME: TIME
+  DATETIME: TIMESTAMP
+  TIMESTAMP: TIMESTAMP
+  YEAR: INT64
+  
+  # Enum and Set (convert to STRING)
+  ENUM: STRING
+  SET: STRING
+  
+  # JSON (MySQL 5.7.8+)
+  JSON: JSON
+  
+  # Spatial types
+  GEOMETRY: GEOGRAPHY
+  POINT: GEOGRAPHY
+  LINESTRING: GEOGRAPHY
+  POLYGON: GEOGRAPHY
+  MULTIPOINT: GEOGRAPHY
+  MULTILINESTRING: GEOGRAPHY
+  MULTIPOLYGON: GEOGRAPHY
+  GEOMETRYCOLLECTION: GEOGRAPHY
+  
+  # Bit type
+  BIT: BYTES
+
+# =============================================================================
+# FILE DETECTION PATTERNS
+# =============================================================================
+file_patterns:
+  ddl:
+    extensions: [".sql", ".ddl", ".mysql"]
+    prefixes: ["d_", "f_", "dim_", "fact_"]
+    
+  procedures:
+    extensions: [".sql", ".prc", ".proc"]
+    prefixes: ["sp_", "usp_", "fn_", "proc_"]
+    indicators: ["CREATE PROCEDURE", "CREATE FUNCTION", "DELIMITER"]
+    
+  etl_exports:
+    extensions: [".xml", ".json", ".kjb", ".ktr"]
+    prefixes: []
+    tool: "pentaho"  # Pentaho Data Integration (Kettle)
+
+# =============================================================================
+# TABLE CLASSIFICATION
+# =============================================================================
+table_classification:
+  dimension_prefixes: ["dim_", "d_", "lookup_", "lkp_", "ref_"]
+  fact_prefixes: ["fact_", "f_", "fct_"]
+  staging_prefixes: ["stg_", "stage_", "tmp_", "temp_"]
+  bridge_prefixes: ["bridge_", "brg_", "b_"]
+
+# =============================================================================
+# SCD TYPE DETECTION
+# =============================================================================
+scd_detection:
+  type2_tables:
+    - customer
+    - dim_customer
+    - d_customer
+    - user
+    - dim_user
+    - d_user
+    - employee
+    - dim_employee
+    - d_employee
+    - member
+    - dim_member
+    - d_member
+    - account
+    - dim_account
+    - vendor
+    - dim_vendor
+    - supplier
+    - dim_supplier
+  
+  type1_tables:
+    # Date/Time
+    - dim_date
+    - d_date
+    - dim_time
+    - d_time
+    - calendar
+    # Geography
+    - dim_geography
+    - dim_country
+    - dim_region
+    - dim_city
+    - countries
+    - regions
+    - cities
+    # Reference
+    - dim_status
+    - d_status
+    - status
+    - dim_type
+    - d_type
+    - types
+    - dim_category
+    - d_category
+    - categories
+    - dim_currency
+    - currencies
+  
+  type2_column_indicators:
+    - effective_date
+    - eff_date
+    - expiry_date
+    - exp_date
+    - valid_from
+    - valid_to
+    - start_date
+    - end_date
+    - is_current
+    - current_flag
+    - is_active
+    - active
+    - version
+    - row_version
+
+  type1_column_indicators:
+    - code
+    - description
+    - name
+    - title
+    - label
+
+# =============================================================================
+# INCREMENTAL LOADING PATTERNS
+# =============================================================================
+incremental_patterns:
+  - "^fact_"
+  - "^f_"
+  - "_fact$"
+  - "^stg_"
+  - "_stg$"
+  - "_transactions?"
+  - "_orders?"
+  - "_log$"
+  - "_logs$"
+  - "_audit$"
+  - "_history$"
+  - "_events?"
+  - "_activities?"
+  - "_snapshots?"
+
+# =============================================================================
+# DOMAIN TO DATASET MAPPING
+# =============================================================================
+domain_mapping:
+  "Customer": bq_customer
+  "User": bq_user
+  "Sales": bq_sales
+  "Order": bq_orders
+  "Product": bq_product
+  "Inventory": bq_inventory
+  "Finance": bq_finance
+  "Marketing": bq_marketing
+  "Reference": bq_reference
+  default: bq_staging
+
+# =============================================================================
+# MYSQL-SPECIFIC SETTINGS
+# =============================================================================
+mysql_specific:
+  # Handle AUTO_INCREMENT
+  convert_auto_increment_to: "GENERATE_UUID()"
+  
+  # Handle MySQL-specific functions
+  function_mappings:
+    NOW: CURRENT_TIMESTAMP
+    CURDATE: CURRENT_DATE
+    CURTIME: CURRENT_TIME
+    SYSDATE: CURRENT_TIMESTAMP
+    UTC_DATE: CURRENT_DATE
+    UTC_TIME: CURRENT_TIME
+    UTC_TIMESTAMP: CURRENT_TIMESTAMP
+    IFNULL: IFNULL
+    NULLIF: NULLIF
+    COALESCE: COALESCE
+    IF: IF
+    CASE: CASE
+    CAST: CAST
+    CONVERT: CAST
+    DATE_ADD: DATE_ADD
+    DATE_SUB: DATE_SUB
+    DATEDIFF: DATE_DIFF
+    TIMESTAMPDIFF: TIMESTAMP_DIFF
+    DATE_FORMAT: FORMAT_TIMESTAMP
+    STR_TO_DATE: PARSE_TIMESTAMP
+    YEAR: EXTRACT(YEAR FROM)
+    MONTH: EXTRACT(MONTH FROM)
+    DAY: EXTRACT(DAY FROM)
+    DAYOFWEEK: EXTRACT(DAYOFWEEK FROM)
+    DAYOFYEAR: EXTRACT(DAYOFYEAR FROM)
+    WEEK: EXTRACT(WEEK FROM)
+    QUARTER: EXTRACT(QUARTER FROM)
+    HOUR: EXTRACT(HOUR FROM)
+    MINUTE: EXTRACT(MINUTE FROM)
+    SECOND: EXTRACT(SECOND FROM)
+    LAST_DAY: LAST_DAY
+    CONCAT: CONCAT
+    CONCAT_WS: "ARRAY_TO_STRING"
+    GROUP_CONCAT: STRING_AGG
+    LENGTH: LENGTH
+    CHAR_LENGTH: LENGTH
+    CHARACTER_LENGTH: LENGTH
+    OCTET_LENGTH: BYTE_LENGTH
+    LOCATE: STRPOS
+    INSTR: STRPOS
+    POSITION: STRPOS
+    SUBSTRING: SUBSTRING
+    SUBSTR: SUBSTRING
+    LEFT: LEFT
+    RIGHT: RIGHT
+    LPAD: LPAD
+    RPAD: RPAD
+    TRIM: TRIM
+    LTRIM: LTRIM
+    RTRIM: RTRIM
+    UPPER: UPPER
+    LOWER: LOWER
+    REVERSE: REVERSE
+    REPLACE: REPLACE
+    REPEAT: REPEAT
+    SPACE: "REPEAT(' ', n)"
+    REGEXP: REGEXP_CONTAINS
+    RLIKE: REGEXP_CONTAINS
+    UUID: GENERATE_UUID
+    ABS: ABS
+    CEIL: CEIL
+    CEILING: CEIL
+    FLOOR: FLOOR
+    ROUND: ROUND
+    TRUNCATE: TRUNC
+    MOD: MOD
+    POWER: POWER
+    POW: POWER
+    SQRT: SQRT
+    EXP: EXP
+    LOG: LN
+    LOG10: LOG10
+    LOG2: "LOG(x, 2)"
+    LN: LN
+    SIGN: SIGN
+    RAND: RAND
+    PI: "ACOS(-1)"
+    GREATEST: GREATEST
+    LEAST: LEAST
+    JSON_EXTRACT: JSON_EXTRACT
+    JSON_UNQUOTE: JSON_VALUE
+    JSON_ARRAY: "TO_JSON_STRING"
+    JSON_OBJECT: "TO_JSON_STRING"
+
+# =============================================================================
+# ANALYSIS PROMPTS
+# =============================================================================
+prompts:
+  schema_analysis: |
+    You are a MySQL expert. Analyze the following MySQL DDL.
+    
+    Extract the following information in JSON format:
+    - table_name: The name of the table
+    - database: The database name if specified
+    - engine: Storage engine (InnoDB, MyISAM, etc.)
+    - columns: Array of {name, type, length, nullable, default_value, auto_increment, on_update}
+    - primary_keys: Array of column names forming the primary key
+    - foreign_keys: Array of {columns, references_table, references_columns, on_delete, on_update}
+    - indexes: Array of {name, columns, is_unique, type (BTREE, HASH, FULLTEXT)}
+    - charset: Character set
+    - collation: Collation
+    - description: Brief description of the table's purpose
+    
+    DDL Content:
+    {content}
+    
+  procedure_analysis: |
+    You are a MySQL expert. Analyze the following stored procedure or function.
+    
+    Extract the following information in JSON format:
+    - object_name: Name of the procedure/function
+    - object_type: PROCEDURE or FUNCTION
+    - definer: The definer if specified
+    - parameters: Array of {name, type, direction (IN/OUT/INOUT)}
+    - return_type: For functions, the return data type
+    - tables_read: Array of table names read
+    - tables_modified: Array of table names modified
+    - cursors: Array of cursor definitions
+    - handlers: Array of exception handlers
+    - logic_summary: Brief description of the logic
+    - complexity: LOW/MEDIUM/HIGH
+    
+    MySQL Content:
+    {content}
+    
+  etl_analysis: |
+    You are a Pentaho Data Integration (Kettle) expert. Analyze the following transformation or job.
+    
+    Extract the following information in JSON format:
+    - name: Name of the transformation/job
+    - type: TRANSFORMATION or JOB
+    - connections: Array of database connections
+    - steps: Array of {name, type, description} for transformations
+    - entries: Array of {name, type, description} for jobs
+    - hops: Array of connections between steps
+    - parameters: Array of parameters
+    - variables: Array of variables
+    - logic_summary: Brief description of the ETL logic
+    
+    Pentaho Content:
+    {content}

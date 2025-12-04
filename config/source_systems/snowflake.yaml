@@ -1,0 +1,486 @@
+# Snowflake to BigQuery Migration Config
+# For migrations from Snowflake to BigQuery
+
+name: "Snowflake"
+description: "Snowflake to BigQuery migration"
+version: "1.0"
+
+# =============================================================================
+# DATA TYPE MAPPINGS
+# =============================================================================
+type_mappings:
+  # Numeric types
+  NUMBER: NUMERIC
+  DECIMAL: NUMERIC
+  NUMERIC: NUMERIC
+  INT: INT64
+  INTEGER: INT64
+  BIGINT: INT64
+  SMALLINT: INT64
+  TINYINT: INT64
+  BYTEINT: INT64
+  FLOAT: FLOAT64
+  FLOAT4: FLOAT64
+  FLOAT8: FLOAT64
+  DOUBLE: FLOAT64
+  "DOUBLE PRECISION": FLOAT64
+  REAL: FLOAT64
+  
+  # String types
+  VARCHAR: STRING
+  CHAR: STRING
+  CHARACTER: STRING
+  STRING: STRING
+  TEXT: STRING
+  
+  # Binary types
+  BINARY: BYTES
+  VARBINARY: BYTES
+  
+  # Boolean
+  BOOLEAN: BOOL
+  
+  # Date/Time types
+  DATE: DATE
+  TIME: TIME
+  DATETIME: TIMESTAMP
+  TIMESTAMP: TIMESTAMP
+  TIMESTAMP_LTZ: TIMESTAMP
+  TIMESTAMP_NTZ: TIMESTAMP
+  TIMESTAMP_TZ: TIMESTAMP
+  
+  # Semi-structured types
+  VARIANT: JSON
+  OBJECT: JSON
+  ARRAY: JSON
+  
+  # Geospatial types
+  GEOGRAPHY: GEOGRAPHY
+  GEOMETRY: GEOGRAPHY
+
+# =============================================================================
+# FILE DETECTION PATTERNS
+# =============================================================================
+file_patterns:
+  ddl:
+    extensions: [".sql", ".ddl"]
+    prefixes: ["D_", "F_", "DIM_", "FACT_", "STG_"]
+    
+  procedures:
+    extensions: [".sql"]
+    prefixes: ["SP_", "USP_", "PROC_", "FN_"]
+    indicators: ["CREATE PROCEDURE", "CREATE OR REPLACE PROCEDURE", "CREATE FUNCTION"]
+    
+  etl_exports:
+    extensions: [".sql", ".yml", ".yaml"]
+    prefixes: []
+    tool: "dbt"  # dbt is very common with Snowflake
+
+# =============================================================================
+# TABLE CLASSIFICATION
+# =============================================================================
+table_classification:
+  dimension_prefixes: ["DIM_", "D_", "dim_", "d_", "LKP_", "REF_"]
+  fact_prefixes: ["FACT_", "F_", "fact_", "f_", "FCT_"]
+  staging_prefixes: ["STG_", "STAGE_", "stg_", "stage_", "RAW_", "raw_"]
+  bridge_prefixes: ["BRIDGE_", "BRG_", "B_"]
+
+# =============================================================================
+# SCD TYPE DETECTION
+# =============================================================================
+scd_detection:
+  type2_tables:
+    - customer
+    - dim_customer
+    - d_customer
+    - employee
+    - dim_employee
+    - d_employee
+    - member
+    - dim_member
+    - d_member
+    - account
+    - dim_account
+    - vendor
+    - dim_vendor
+    - supplier
+    - dim_supplier
+    - organization
+    - dim_organization
+  
+  type1_tables:
+    # Date/Time
+    - dim_date
+    - d_date
+    - dim_time
+    - d_time
+    - dim_calendar
+    # Geography
+    - dim_geography
+    - dim_region
+    - dim_country
+    - dim_state
+    - dim_city
+    # Reference
+    - dim_status
+    - d_status
+    - dim_type
+    - d_type
+    - dim_category
+    - d_category
+    - dim_currency
+    - d_currency
+  
+  type2_column_indicators:
+    - effective_date
+    - eff_date
+    - expiration_date
+    - exp_date
+    - valid_from
+    - valid_to
+    - dbt_valid_from
+    - dbt_valid_to
+    - dbt_updated_at
+    - start_date
+    - end_date
+    - is_current
+    - current_flag
+    - _scd_start
+    - _scd_end
+
+  type1_column_indicators:
+    - code
+    - description
+    - name
+    - title
+
+# =============================================================================
+# INCREMENTAL LOADING PATTERNS
+# =============================================================================
+incremental_patterns:
+  - "^fact_"
+  - "^f_"
+  - "_fact$"
+  - "^stg_"
+  - "^stage_"
+  - "^raw_"
+  - "_stg$"
+  - "_transactions?"
+  - "_events?"
+  - "_log$"
+  - "_audit$"
+  - "_history$"
+  - "_activity$"
+  - "_snapshot$"
+
+# =============================================================================
+# DOMAIN TO DATASET MAPPING
+# =============================================================================
+domain_mapping:
+  "Customer": bq_customer
+  "Sales": bq_sales
+  "Finance": bq_finance
+  "Marketing": bq_marketing
+  "Product": bq_product
+  "Operations": bq_operations
+  "Analytics": bq_analytics
+  "Reference": bq_reference
+  default: bq_staging
+
+# =============================================================================
+# SNOWFLAKE-SPECIFIC SETTINGS
+# =============================================================================
+snowflake_specific:
+  # Handle AUTOINCREMENT/IDENTITY
+  convert_autoincrement_to: "GENERATE_UUID()"
+  
+  # Handle Snowflake-specific functions
+  function_mappings:
+    # Date/Time functions
+    CURRENT_DATE: CURRENT_DATE
+    CURRENT_TIME: CURRENT_TIME
+    CURRENT_TIMESTAMP: CURRENT_TIMESTAMP
+    GETDATE: CURRENT_TIMESTAMP
+    SYSDATE: CURRENT_TIMESTAMP
+    LOCALTIMESTAMP: CURRENT_TIMESTAMP
+    CONVERT_TIMEZONE: "TIMESTAMP with timezone conversion"
+    DATEADD: DATE_ADD
+    DATEDIFF: DATE_DIFF
+    TIMEDIFF: TIME_DIFF
+    TIMESTAMPADD: TIMESTAMP_ADD
+    TIMESTAMPDIFF: TIMESTAMP_DIFF
+    DATE_PART: EXTRACT
+    DAYNAME: FORMAT_TIMESTAMP
+    MONTHNAME: FORMAT_TIMESTAMP
+    YEAR: EXTRACT(YEAR FROM)
+    MONTH: EXTRACT(MONTH FROM)
+    DAY: EXTRACT(DAY FROM)
+    DAYOFWEEK: EXTRACT(DAYOFWEEK FROM)
+    DAYOFYEAR: EXTRACT(DAYOFYEAR FROM)
+    WEEK: EXTRACT(WEEK FROM)
+    QUARTER: EXTRACT(QUARTER FROM)
+    HOUR: EXTRACT(HOUR FROM)
+    MINUTE: EXTRACT(MINUTE FROM)
+    SECOND: EXTRACT(SECOND FROM)
+    LAST_DAY: LAST_DAY
+    NEXT_DAY: "DATE_ADD with logic"
+    PREVIOUS_DAY: "DATE_SUB with logic"
+    DATE_TRUNC: DATE_TRUNC
+    TIME_SLICE: DATE_TRUNC
+    TRUNC: DATE_TRUNC
+    TO_DATE: PARSE_DATE
+    TO_TIME: PARSE_TIME
+    TO_TIMESTAMP: PARSE_TIMESTAMP
+    TO_TIMESTAMP_LTZ: PARSE_TIMESTAMP
+    TO_TIMESTAMP_NTZ: PARSE_TIMESTAMP
+    TO_TIMESTAMP_TZ: PARSE_TIMESTAMP
+    TRY_TO_DATE: SAFE.PARSE_DATE
+    TRY_TO_TIME: SAFE.PARSE_TIME
+    TRY_TO_TIMESTAMP: SAFE.PARSE_TIMESTAMP
+    
+    # String functions
+    CONCAT: CONCAT
+    CONCAT_WS: "ARRAY_TO_STRING"
+    "||": CONCAT
+    LENGTH: LENGTH
+    LEN: LENGTH
+    CHAR_LENGTH: LENGTH
+    CHARACTER_LENGTH: LENGTH
+    OCTET_LENGTH: BYTE_LENGTH
+    BIT_LENGTH: "BYTE_LENGTH * 8"
+    POSITION: STRPOS
+    CHARINDEX: STRPOS
+    CONTAINS: "STRPOS > 0"
+    STARTSWITH: STARTS_WITH
+    ENDSWITH: ENDS_WITH
+    SUBSTRING: SUBSTRING
+    SUBSTR: SUBSTRING
+    LEFT: LEFT
+    RIGHT: RIGHT
+    LPAD: LPAD
+    RPAD: RPAD
+    TRIM: TRIM
+    LTRIM: LTRIM
+    RTRIM: RTRIM
+    UPPER: UPPER
+    LOWER: LOWER
+    INITCAP: INITCAP
+    REVERSE: REVERSE
+    REPLACE: REPLACE
+    TRANSLATE: TRANSLATE
+    REPEAT: REPEAT
+    SPACE: "REPEAT(' ', n)"
+    SPLIT: SPLIT
+    SPLIT_PART: "SPLIT()[OFFSET()]"
+    STRTOK: "SPLIT()[OFFSET()]"
+    STRTOK_TO_ARRAY: SPLIT
+    LISTAGG: STRING_AGG
+    REGEXP: REGEXP_CONTAINS
+    REGEXP_LIKE: REGEXP_CONTAINS
+    RLIKE: REGEXP_CONTAINS
+    REGEXP_COUNT: "ARRAY_LENGTH(REGEXP_EXTRACT_ALL())"
+    REGEXP_INSTR: REGEXP_INSTR
+    REGEXP_REPLACE: REGEXP_REPLACE
+    REGEXP_SUBSTR: REGEXP_EXTRACT
+    
+    # Null handling
+    COALESCE: COALESCE
+    IFNULL: IFNULL
+    NVL: IFNULL
+    NVL2: "IF(x IS NOT NULL, y, z)"
+    NULLIF: NULLIF
+    NULLIFZERO: "NULLIF(x, 0)"
+    ZEROIFNULL: "IFNULL(x, 0)"
+    IFF: IF
+    DECODE: CASE
+    
+    # Type conversion
+    CAST: CAST
+    TRY_CAST: SAFE_CAST
+    TO_CHAR: FORMAT
+    TO_VARCHAR: CAST
+    TO_NUMBER: CAST
+    TO_DECIMAL: CAST
+    TO_DOUBLE: CAST
+    TO_BOOLEAN: CAST
+    TO_BINARY: CAST
+    
+    # Numeric functions
+    ABS: ABS
+    CEIL: CEIL
+    CEILING: CEIL
+    FLOOR: FLOOR
+    ROUND: ROUND
+    TRUNCATE: TRUNC
+    TRUNC: TRUNC
+    MOD: MOD
+    POWER: POWER
+    POW: POWER
+    SQRT: SQRT
+    CBRT: "POWER(x, 1/3)"
+    EXP: EXP
+    LN: LN
+    LOG: LOG
+    SIGN: SIGN
+    RANDOM: RAND
+    UNIFORM: RAND
+    GREATEST: GREATEST
+    LEAST: LEAST
+    WIDTH_BUCKET: "CASE-based bucketing"
+    
+    # Aggregate functions
+    SUM: SUM
+    AVG: AVG
+    COUNT: COUNT
+    COUNT_IF: COUNTIF
+    MIN: MIN
+    MAX: MAX
+    MEDIAN: "PERCENTILE_CONT(0.5)"
+    MODE: "APPROX_TOP_COUNT"
+    STDDEV: STDDEV
+    STDDEV_POP: STDDEV_POP
+    STDDEV_SAMP: STDDEV_SAMP
+    VARIANCE: VARIANCE
+    VAR_POP: VAR_POP
+    VAR_SAMP: VAR_SAMP
+    CORR: CORR
+    COVAR_POP: COVAR_POP
+    COVAR_SAMP: COVAR_SAMP
+    APPROX_COUNT_DISTINCT: APPROX_COUNT_DISTINCT
+    HLL: APPROX_COUNT_DISTINCT
+    ARRAY_AGG: ARRAY_AGG
+    OBJECT_AGG: "TO_JSON_STRING"
+    
+    # Window functions
+    ROW_NUMBER: ROW_NUMBER
+    RANK: RANK
+    DENSE_RANK: DENSE_RANK
+    PERCENT_RANK: PERCENT_RANK
+    CUME_DIST: CUME_DIST
+    NTILE: NTILE
+    LAG: LAG
+    LEAD: LEAD
+    FIRST_VALUE: FIRST_VALUE
+    LAST_VALUE: LAST_VALUE
+    NTH_VALUE: NTH_VALUE
+    CONDITIONAL_TRUE_EVENT: "SUM(CASE WHEN ... THEN 1 ELSE 0 END)"
+    CONDITIONAL_CHANGE_EVENT: "SUM(CASE WHEN ... THEN 1 ELSE 0 END)"
+    
+    # Semi-structured functions
+    PARSE_JSON: JSON_EXTRACT
+    TRY_PARSE_JSON: SAFE.JSON_EXTRACT
+    TO_JSON: TO_JSON_STRING
+    TO_VARIANT: TO_JSON_STRING
+    OBJECT_CONSTRUCT: "JSON object literal"
+    OBJECT_INSERT: "JSON manipulation"
+    OBJECT_DELETE: "JSON manipulation"
+    ARRAY_CONSTRUCT: "ARRAY literal"
+    ARRAY_INSERT: "ARRAY manipulation"
+    ARRAY_APPEND: "ARRAY_CONCAT"
+    ARRAY_CAT: ARRAY_CONCAT
+    ARRAY_COMPACT: "ARRAY_FILTER"
+    ARRAY_CONTAINS: "value IN UNNEST(array)"
+    ARRAY_SIZE: ARRAY_LENGTH
+    ARRAY_SLICE: "ARRAY subscript"
+    FLATTEN: UNNEST
+    GET: JSON_EXTRACT
+    GET_PATH: JSON_EXTRACT
+    OBJECT_KEYS: JSON_EXTRACT_KEYS
+    TYPEOF: "JSON type detection"
+    
+    # Hash functions
+    HASH: FARM_FINGERPRINT
+    MD5: MD5
+    MD5_HEX: TO_HEX(MD5())
+    SHA1: SHA1
+    SHA1_HEX: TO_HEX(SHA1())
+    SHA2: SHA256
+    SHA2_HEX: TO_HEX(SHA256())
+    
+    # Other
+    UUID_STRING: GENERATE_UUID
+    SEQ1: "ROW_NUMBER()"
+    SEQ2: "ROW_NUMBER()"
+    SEQ4: "ROW_NUMBER()"
+    SEQ8: "ROW_NUMBER()"
+    GENERATOR: "GENERATE_ARRAY"
+    SYSTEM$TYPEOF: "-- No equivalent"
+    IDENTIFIER: "-- Dynamic SQL"
+    
+    # Geospatial
+    ST_AREA: ST_AREA
+    ST_DISTANCE: ST_DISTANCE
+    ST_CONTAINS: ST_CONTAINS
+    ST_INTERSECTS: ST_INTERSECTS
+    ST_WITHIN: ST_WITHIN
+    ST_GEOGFROMTEXT: ST_GEOGFROMTEXT
+    ST_GEOGFROMWKB: ST_GEOGFROMWKB
+    ST_ASTEXT: ST_ASTEXT
+    ST_ASWKB: ST_ASBINARY
+
+# =============================================================================
+# ANALYSIS PROMPTS
+# =============================================================================
+prompts:
+  schema_analysis: |
+    You are a Snowflake expert. Analyze the following Snowflake DDL.
+    
+    Extract the following information in JSON format:
+    - table_name: The name of the table
+    - database: The database name
+    - schema: The schema name
+    - table_type: PERMANENT, TEMPORARY, TRANSIENT, EXTERNAL
+    - columns: Array of {name, type, nullable, default_value, identity, comment}
+    - primary_keys: Array of column names forming the primary key
+    - foreign_keys: Array of {columns, references_database, references_schema, references_table, references_columns}
+    - unique_keys: Array of unique constraints
+    - clustering_key: Clustering key columns if defined
+    - data_retention_days: Time travel retention period
+    - change_tracking: true/false
+    - tags: Array of tags applied
+    - comment: Table comment
+    - description: Brief description of the table's purpose
+    
+    DDL Content:
+    {content}
+    
+  procedure_analysis: |
+    You are a Snowflake SQL expert. Analyze the following stored procedure or UDF.
+    
+    Extract the following information in JSON format:
+    - object_name: Name of the procedure/function
+    - object_type: PROCEDURE, FUNCTION, or UDF
+    - database: The database
+    - schema: The schema
+    - language: SQL, JAVASCRIPT, PYTHON, JAVA, SCALA
+    - parameters: Array of {name, type, default_value}
+    - return_type: Return type
+    - tables_read: Array of fully qualified table names read
+    - tables_modified: Array of fully qualified table names modified
+    - streams_used: Array of streams referenced
+    - tasks_related: Array of related tasks
+    - logic_summary: Brief description of the logic
+    - complexity: LOW/MEDIUM/HIGH
+    
+    Snowflake Content:
+    {content}
+    
+  etl_analysis: |
+    You are a dbt expert. Analyze the following dbt model or configuration.
+    
+    Extract the following information in JSON format:
+    - model_name: Name of the dbt model
+    - materialization: table, view, incremental, ephemeral
+    - database: Target database
+    - schema: Target schema
+    - sources: Array of source references (source('schema', 'table'))
+    - refs: Array of model references (ref('model'))
+    - config: Model configuration (unique_key, strategy, etc.)
+    - tests: Array of tests defined
+    - description: Model description
+    - columns: Array of documented columns with descriptions
+    - tags: Array of tags
+    - logic_summary: Brief description of the transformation
+    
+    dbt Content:
+    {content}

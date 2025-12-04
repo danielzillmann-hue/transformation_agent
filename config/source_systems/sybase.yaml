@@ -1,0 +1,271 @@
+# Sybase ASE / SAP ASE to BigQuery Migration Config
+# This is the default configuration used for the Crown migration
+
+name: "Sybase ASE"
+description: "Sybase Adaptive Server Enterprise to BigQuery migration"
+version: "1.0"
+
+# =============================================================================
+# DATA TYPE MAPPINGS
+# =============================================================================
+type_mappings:
+  # Integer types
+  INT: INT64
+  INTEGER: INT64
+  SMALLINT: INT64
+  TINYINT: INT64
+  BIGINT: INT64
+  
+  # Decimal/Numeric types
+  DECIMAL: NUMERIC
+  NUMERIC: NUMERIC
+  MONEY: "NUMERIC(19,4)"
+  SMALLMONEY: "NUMERIC(10,4)"
+  
+  # Floating point
+  FLOAT: FLOAT64
+  REAL: FLOAT64
+  DOUBLE: FLOAT64
+  
+  # String types
+  CHAR: STRING
+  VARCHAR: STRING
+  TEXT: STRING
+  NCHAR: STRING
+  NVARCHAR: STRING
+  NTEXT: STRING
+  UNITEXT: STRING
+  UNIVARCHAR: STRING
+  
+  # Date/Time types
+  DATETIME: TIMESTAMP
+  SMALLDATETIME: TIMESTAMP
+  DATE: DATE
+  TIME: TIME
+  BIGDATETIME: TIMESTAMP
+  BIGTIME: TIME
+  
+  # Binary types
+  BINARY: BYTES
+  VARBINARY: BYTES
+  IMAGE: BYTES
+  
+  # Boolean
+  BIT: BOOL
+
+# =============================================================================
+# FILE DETECTION PATTERNS
+# =============================================================================
+file_patterns:
+  ddl:
+    extensions: [".sql", ".ddl"]
+    prefixes: ["D_", "F_", "dim_", "fact_"]
+    
+  procedures:
+    extensions: [".sql", ".prc", ".sp"]
+    prefixes: ["sp_", "usp_", "proc_"]
+    indicators: ["CREATE PROC", "CREATE PROCEDURE"]
+    
+  etl_exports:
+    extensions: [".xml", ".XML"]
+    prefixes: ["m_", "wkf_", "s_"]
+    tool: "informatica"
+
+# =============================================================================
+# TABLE CLASSIFICATION
+# =============================================================================
+table_classification:
+  dimension_prefixes: ["D_", "d_", "dim_", "Dim_", "DIM_"]
+  fact_prefixes: ["F_", "f_", "fact_", "Fact_", "FACT_", "fct_"]
+  staging_prefixes: ["stg_", "STG_", "stage_", "tmp_", "TMP_", "temp_"]
+  bridge_prefixes: ["B_", "b_", "bridge_"]
+  
+# =============================================================================
+# SCD TYPE DETECTION
+# =============================================================================
+scd_detection:
+  # Tables representing people - should track history (Type 2)
+  type2_tables:
+    - patron
+    - d_patron
+    - dim_patron
+    - customer
+    - d_customer
+    - dim_customer
+    - member
+    - d_member
+    - dim_member
+    - employee
+    - d_employee
+    - dim_employee
+  
+  # Reference/lookup tables - never track history (Type 1)
+  type1_tables:
+    # Age/demographic lookups
+    - age
+    - d_age
+    - dim_age
+    - age_range
+    # Location/site reference
+    - site
+    - d_site
+    - dim_site
+    - location
+    - d_location
+    - casinolocation
+    - d_casinolocation
+    - casinolocationdet
+    - d_casinolocationdet
+    - terminallocation
+    - d_terminallocation
+    - terminallocationdet
+    - d_terminallocationdet
+    # Product/machine reference
+    - product
+    - d_product
+    - dim_product
+    - productdet
+    - d_productdet
+    - gamingmachine
+    - d_gamingmachine
+    - machine
+    - d_machine
+    # Organizational reference
+    - department
+    - d_department
+    - license
+    - d_license
+    - gaminglicense
+    - d_gaminglicense
+    # Program/tier reference
+    - plyr_prog
+    - d_plyr_prog
+    - player_program
+    # Date/time dimensions
+    - date
+    - d_date
+    - dim_date
+    - time
+    - d_time
+    - dim_time
+    - hour
+    - d_hour
+    - week
+    - d_week
+    - month
+    - d_month
+    # Other common reference
+    - currency
+    - country
+    - state
+    - status
+    - status_code
+    - d_status_code
+    - type
+    - code
+    - transtype
+    - d_transtype
+  
+  # Column patterns indicating Type 2
+  type2_column_indicators:
+    - effective_date
+    - eff_date
+    - expiry_date
+    - exp_date
+    - valid_from
+    - valid_to
+    - start_date
+    - end_date
+    - is_current
+    - current_flag
+    - version
+    - row_version
+    - scd_start
+    - scd_end
+
+  # Column patterns indicating Type 1 (simple lookups)
+  type1_column_indicators:
+    - code
+    - description
+    - desc
+    - name
+    - short_name
+    - long_name
+
+# =============================================================================
+# INCREMENTAL LOADING PATTERNS
+# =============================================================================
+incremental_patterns:
+  # Regex patterns for tables that should use incremental loading
+  - "^f_"           # Fact tables
+  - "^fact_"
+  - "_fact$"
+  - "^stg_"         # Staging tables
+  - "_stg$"
+  - "^trans"        # Transaction tables
+  - "_trans$"
+  - "_transaction"
+  - "_log$"         # Log/audit tables
+  - "_hist$"        # History tables
+  - "_history$"
+  - "_activity"
+  - "_event"
+  - "_snapshot"
+
+# =============================================================================
+# DOMAIN TO DATASET MAPPING
+# =============================================================================
+domain_mapping:
+  "Customer & Loyalty Management": crown_customer_loyalty
+  "Casino Operations & Locations": crown_casino_operations
+  "Gaming Products & Assets": crown_gaming_products
+  "Gaming Activity & Performance": crown_gaming_activity
+  "Promotions & Marketing": crown_promotions
+  "Regulatory & Compliance": crown_regulatory
+  "Reference & Time Data": crown_reference
+  default: crown_default
+
+# =============================================================================
+# ANALYSIS PROMPTS
+# =============================================================================
+prompts:
+  schema_analysis: |
+    You are a Sybase ASE expert. Analyze the following Sybase DDL (CREATE TABLE, ALTER TABLE statements).
+    
+    Extract the following information in JSON format:
+    - table_name: The name of the table
+    - columns: Array of {name, type, nullable, default_value, is_identity}
+    - primary_keys: Array of column names forming the primary key
+    - foreign_keys: Array of {columns, references_table, references_columns}
+    - indexes: Array of {name, columns, is_unique}
+    - description: Brief description of the table's purpose based on its structure
+    
+    DDL Content:
+    {content}
+    
+  procedure_analysis: |
+    You are a Sybase ASE expert. Analyze the following stored procedure.
+    
+    Extract the following information in JSON format:
+    - procedure_name: Name of the procedure
+    - parameters: Array of {name, type, direction (IN/OUT/INOUT)}
+    - tables_read: Array of table names read by this procedure
+    - tables_modified: Array of table names modified (INSERT/UPDATE/DELETE)
+    - logic_summary: Brief description of what the procedure does
+    - complexity: LOW/MEDIUM/HIGH based on logic complexity
+    
+    Procedure Content:
+    {content}
+    
+  etl_analysis: |
+    You are an Informatica PowerCenter expert. Analyze the following Informatica XML export.
+    
+    Extract the following information in JSON format:
+    - mapping_name: Name of the mapping
+    - sources: Array of source table/file names
+    - targets: Array of target table names
+    - transformations: Array of {name, type} for key transformations
+    - logic_summary: Brief description of the ETL logic
+    
+    XML Content:
+    {content}

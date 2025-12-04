@@ -1,0 +1,439 @@
+# PostgreSQL to BigQuery Migration Config
+# Supports PostgreSQL 10, 11, 12, 13, 14, 15, 16
+
+name: "PostgreSQL"
+description: "PostgreSQL to BigQuery migration"
+version: "1.0"
+
+# =============================================================================
+# DATA TYPE MAPPINGS
+# =============================================================================
+type_mappings:
+  # Integer types
+  SMALLINT: INT64
+  INT2: INT64
+  INTEGER: INT64
+  INT: INT64
+  INT4: INT64
+  BIGINT: INT64
+  INT8: INT64
+  SMALLSERIAL: INT64
+  SERIAL: INT64
+  SERIAL4: INT64
+  BIGSERIAL: INT64
+  SERIAL8: INT64
+  
+  # Decimal types
+  DECIMAL: NUMERIC
+  NUMERIC: NUMERIC
+  MONEY: NUMERIC
+  
+  # Floating point
+  REAL: FLOAT64
+  FLOAT4: FLOAT64
+  "DOUBLE PRECISION": FLOAT64
+  FLOAT8: FLOAT64
+  FLOAT: FLOAT64
+  
+  # String types
+  CHARACTER: STRING
+  CHAR: STRING
+  "CHARACTER VARYING": STRING
+  VARCHAR: STRING
+  TEXT: STRING
+  CITEXT: STRING           # Case-insensitive text extension
+  NAME: STRING
+  
+  # Binary types
+  BYTEA: BYTES
+  
+  # Boolean
+  BOOLEAN: BOOL
+  BOOL: BOOL
+  
+  # Date/Time types
+  DATE: DATE
+  TIME: TIME
+  "TIME WITHOUT TIME ZONE": TIME
+  "TIME WITH TIME ZONE": TIME
+  TIMETZ: TIME
+  TIMESTAMP: TIMESTAMP
+  "TIMESTAMP WITHOUT TIME ZONE": TIMESTAMP
+  "TIMESTAMP WITH TIME ZONE": TIMESTAMP
+  TIMESTAMPTZ: TIMESTAMP
+  INTERVAL: STRING         # No direct equivalent
+  
+  # UUID
+  UUID: STRING
+  
+  # JSON types
+  JSON: JSON
+  JSONB: JSON
+  
+  # Array types (convert to ARRAY or STRING)
+  "INTEGER[]": "ARRAY<INT64>"
+  "TEXT[]": "ARRAY<STRING>"
+  "VARCHAR[]": "ARRAY<STRING>"
+  
+  # Network types
+  INET: STRING
+  CIDR: STRING
+  MACADDR: STRING
+  MACADDR8: STRING
+  
+  # Geometric types
+  POINT: GEOGRAPHY
+  LINE: STRING
+  LSEG: STRING
+  BOX: STRING
+  PATH: STRING
+  POLYGON: GEOGRAPHY
+  CIRCLE: STRING
+  
+  # PostGIS types
+  GEOMETRY: GEOGRAPHY
+  GEOGRAPHY: GEOGRAPHY
+  
+  # Range types
+  INT4RANGE: STRING
+  INT8RANGE: STRING
+  NUMRANGE: STRING
+  TSRANGE: STRING
+  TSTZRANGE: STRING
+  DATERANGE: STRING
+  
+  # Other types
+  XML: STRING
+  TSVECTOR: STRING
+  TSQUERY: STRING
+  OID: INT64
+  REGCLASS: STRING
+  REGTYPE: STRING
+  HSTORE: JSON             # Key-value extension
+
+# =============================================================================
+# FILE DETECTION PATTERNS
+# =============================================================================
+file_patterns:
+  ddl:
+    extensions: [".sql", ".ddl", ".pgsql"]
+    prefixes: ["d_", "f_", "dim_", "fact_"]
+    
+  procedures:
+    extensions: [".sql", ".pgsql", ".plpgsql"]
+    prefixes: ["fn_", "sp_", "proc_", "func_"]
+    indicators: ["CREATE FUNCTION", "CREATE PROCEDURE", "CREATE OR REPLACE FUNCTION"]
+    
+  etl_exports:
+    extensions: [".xml", ".json"]
+    prefixes: []
+    tool: "dbt"  # dbt is common with PostgreSQL
+
+# =============================================================================
+# TABLE CLASSIFICATION
+# =============================================================================
+table_classification:
+  dimension_prefixes: ["dim_", "d_", "lookup_", "lkp_", "ref_"]
+  fact_prefixes: ["fact_", "f_", "fct_"]
+  staging_prefixes: ["stg_", "stage_", "tmp_", "temp_", "_temp_"]
+  bridge_prefixes: ["bridge_", "brg_", "b_"]
+
+# =============================================================================
+# SCD TYPE DETECTION
+# =============================================================================
+scd_detection:
+  type2_tables:
+    - customer
+    - dim_customer
+    - d_customer
+    - users
+    - dim_user
+    - d_user
+    - employee
+    - dim_employee
+    - d_employee
+    - member
+    - dim_member
+    - d_member
+    - account
+    - dim_account
+    - vendor
+    - dim_vendor
+    - organization
+    - dim_organization
+  
+  type1_tables:
+    # Date/Time
+    - dim_date
+    - d_date
+    - dim_time
+    - d_time
+    - calendar
+    # Geography
+    - dim_geography
+    - dim_country
+    - dim_region
+    - dim_city
+    - countries
+    - regions
+    - cities
+    # Reference
+    - dim_status
+    - d_status
+    - status
+    - statuses
+    - dim_type
+    - d_type
+    - types
+    - dim_category
+    - d_category
+    - categories
+    - dim_currency
+    - currencies
+  
+  type2_column_indicators:
+    - effective_date
+    - eff_date
+    - expiry_date
+    - exp_date
+    - valid_from
+    - valid_to
+    - start_date
+    - end_date
+    - is_current
+    - current_flag
+    - is_active
+    - active
+    - version
+    - row_version
+    - sys_period           # PostgreSQL temporal tables
+
+  type1_column_indicators:
+    - code
+    - description
+    - name
+    - title
+    - label
+
+# =============================================================================
+# INCREMENTAL LOADING PATTERNS
+# =============================================================================
+incremental_patterns:
+  - "^fact_"
+  - "^f_"
+  - "_fact$"
+  - "^stg_"
+  - "_stg$"
+  - "_transactions?"
+  - "_orders?"
+  - "_log$"
+  - "_logs$"
+  - "_audit$"
+  - "_history$"
+  - "_events?"
+  - "_activities?"
+  - "_snapshots?"
+  - "_partitioned$"
+
+# =============================================================================
+# DOMAIN TO DATASET MAPPING
+# =============================================================================
+domain_mapping:
+  "Customer": bq_customer
+  "User": bq_user
+  "Sales": bq_sales
+  "Order": bq_orders
+  "Product": bq_product
+  "Inventory": bq_inventory
+  "Finance": bq_finance
+  "Analytics": bq_analytics
+  "Reference": bq_reference
+  default: bq_staging
+
+# =============================================================================
+# POSTGRESQL-SPECIFIC SETTINGS
+# =============================================================================
+postgres_specific:
+  # Handle SERIAL types
+  convert_serial_to: "GENERATE_UUID()"
+  
+  # Handle PostgreSQL-specific functions
+  function_mappings:
+    NOW: CURRENT_TIMESTAMP
+    CURRENT_DATE: CURRENT_DATE
+    CURRENT_TIME: CURRENT_TIME
+    CURRENT_TIMESTAMP: CURRENT_TIMESTAMP
+    LOCALTIME: CURRENT_TIME
+    LOCALTIMESTAMP: CURRENT_TIMESTAMP
+    CLOCK_TIMESTAMP: CURRENT_TIMESTAMP
+    STATEMENT_TIMESTAMP: CURRENT_TIMESTAMP
+    TRANSACTION_TIMESTAMP: CURRENT_TIMESTAMP
+    TIMEOFDAY: "CAST(CURRENT_TIMESTAMP AS STRING)"
+    COALESCE: COALESCE
+    NULLIF: NULLIF
+    GREATEST: GREATEST
+    LEAST: LEAST
+    CASE: CASE
+    CAST: CAST
+    "::": CAST                    # PostgreSQL cast syntax
+    TO_CHAR: FORMAT_TIMESTAMP
+    TO_DATE: PARSE_DATE
+    TO_TIMESTAMP: PARSE_TIMESTAMP
+    TO_NUMBER: CAST
+    DATE_PART: EXTRACT
+    DATE_TRUNC: DATE_TRUNC
+    EXTRACT: EXTRACT
+    AGE: DATE_DIFF
+    MAKE_DATE: DATE
+    MAKE_TIME: TIME
+    MAKE_TIMESTAMP: TIMESTAMP
+    MAKE_INTERVAL: "INTERVAL expression"
+    CONCAT: CONCAT
+    CONCAT_WS: "ARRAY_TO_STRING"
+    STRING_AGG: STRING_AGG
+    ARRAY_AGG: ARRAY_AGG
+    ARRAY_TO_STRING: ARRAY_TO_STRING
+    STRING_TO_ARRAY: SPLIT
+    LENGTH: LENGTH
+    CHAR_LENGTH: LENGTH
+    CHARACTER_LENGTH: LENGTH
+    OCTET_LENGTH: BYTE_LENGTH
+    BIT_LENGTH: "BYTE_LENGTH * 8"
+    POSITION: STRPOS
+    STRPOS: STRPOS
+    SUBSTRING: SUBSTRING
+    SUBSTR: SUBSTRING
+    LEFT: LEFT
+    RIGHT: RIGHT
+    LPAD: LPAD
+    RPAD: RPAD
+    TRIM: TRIM
+    BTRIM: TRIM
+    LTRIM: LTRIM
+    RTRIM: RTRIM
+    UPPER: UPPER
+    LOWER: LOWER
+    INITCAP: INITCAP
+    REVERSE: REVERSE
+    REPLACE: REPLACE
+    TRANSLATE: TRANSLATE
+    REPEAT: REPEAT
+    REGEXP_MATCH: REGEXP_EXTRACT
+    REGEXP_MATCHES: REGEXP_EXTRACT_ALL
+    REGEXP_REPLACE: REGEXP_REPLACE
+    REGEXP_SPLIT_TO_ARRAY: SPLIT
+    "~": REGEXP_CONTAINS
+    "~*": REGEXP_CONTAINS
+    "!~": "NOT REGEXP_CONTAINS"
+    SIMILAR: REGEXP_CONTAINS
+    GEN_RANDOM_UUID: GENERATE_UUID
+    UUID_GENERATE_V4: GENERATE_UUID
+    MD5: MD5
+    SHA256: SHA256
+    ENCODE: TO_BASE64
+    DECODE: FROM_BASE64
+    ABS: ABS
+    CEIL: CEIL
+    CEILING: CEIL
+    FLOOR: FLOOR
+    ROUND: ROUND
+    TRUNC: TRUNC
+    MOD: MOD
+    POWER: POWER
+    SQRT: SQRT
+    CBRT: "POWER(x, 1/3)"
+    EXP: EXP
+    LN: LN
+    LOG: LOG
+    LOG10: LOG10
+    SIGN: SIGN
+    RANDOM: RAND
+    SETSEED: "-- No equivalent"
+    PI: "ACOS(-1)"
+    DEGREES: "x * 180 / ACOS(-1)"
+    RADIANS: "x * ACOS(-1) / 180"
+    ROW_NUMBER: ROW_NUMBER
+    RANK: RANK
+    DENSE_RANK: DENSE_RANK
+    NTILE: NTILE
+    LAG: LAG
+    LEAD: LEAD
+    FIRST_VALUE: FIRST_VALUE
+    LAST_VALUE: LAST_VALUE
+    NTH_VALUE: NTH_VALUE
+    PERCENT_RANK: PERCENT_RANK
+    CUME_DIST: CUME_DIST
+    JSON_BUILD_OBJECT: TO_JSON_STRING
+    JSON_BUILD_ARRAY: TO_JSON_STRING
+    JSON_AGG: "TO_JSON_STRING(ARRAY_AGG())"
+    JSONB_BUILD_OBJECT: TO_JSON_STRING
+    JSONB_BUILD_ARRAY: TO_JSON_STRING
+    JSONB_AGG: "TO_JSON_STRING(ARRAY_AGG())"
+    "->": JSON_EXTRACT
+    "->>": JSON_VALUE
+    "#>": JSON_EXTRACT
+    "#>>": JSON_VALUE
+    "@>": "JSON contains"
+    "<@": "JSON contained by"
+    "?": "JSON key exists"
+
+# =============================================================================
+# ANALYSIS PROMPTS
+# =============================================================================
+prompts:
+  schema_analysis: |
+    You are a PostgreSQL expert. Analyze the following PostgreSQL DDL.
+    
+    Extract the following information in JSON format:
+    - table_name: The name of the table
+    - schema: The schema (e.g., public, sales)
+    - columns: Array of {name, type, nullable, default_value, is_serial, is_generated}
+    - primary_keys: Array of column names forming the primary key
+    - foreign_keys: Array of {columns, references_schema, references_table, references_columns, on_delete, on_update}
+    - indexes: Array of {name, columns, is_unique, method (btree, hash, gin, gist), where_clause}
+    - check_constraints: Array of {name, definition}
+    - exclusion_constraints: Array of {name, definition}
+    - partitioning: {strategy (RANGE, LIST, HASH), key_columns} if partitioned
+    - inherits: Parent table if using inheritance
+    - description: Brief description of the table's purpose
+    
+    DDL Content:
+    {content}
+    
+  procedure_analysis: |
+    You are a PostgreSQL PL/pgSQL expert. Analyze the following function or procedure.
+    
+    Extract the following information in JSON format:
+    - object_name: Name of the function/procedure
+    - object_type: FUNCTION or PROCEDURE
+    - schema: The schema
+    - language: The procedural language (plpgsql, sql, plpython, etc.)
+    - parameters: Array of {name, type, mode (IN/OUT/INOUT/VARIADIC), default_value}
+    - return_type: Return type (including SETOF, TABLE, etc.)
+    - volatility: VOLATILE, STABLE, or IMMUTABLE
+    - tables_read: Array of [schema].[table] names read
+    - tables_modified: Array of [schema].[table] names modified
+    - security: SECURITY DEFINER or SECURITY INVOKER
+    - logic_summary: Brief description of the logic
+    - complexity: LOW/MEDIUM/HIGH
+    
+    PostgreSQL Content:
+    {content}
+    
+  etl_analysis: |
+    You are a dbt (data build tool) expert. Analyze the following dbt model or configuration.
+    
+    Extract the following information in JSON format:
+    - model_name: Name of the dbt model
+    - materialization: table, view, incremental, ephemeral
+    - schema: Target schema
+    - sources: Array of source references
+    - refs: Array of model references
+    - config: Model configuration options
+    - tests: Array of tests defined
+    - description: Model description
+    - columns: Array of documented columns
+    - logic_summary: Brief description of the transformation
+    
+    dbt Content:
+    {content}

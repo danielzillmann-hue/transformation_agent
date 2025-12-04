@@ -1,0 +1,338 @@
+# Microsoft SQL Server to BigQuery Migration Config
+# Supports SQL Server 2012, 2014, 2016, 2017, 2019, 2022, Azure SQL
+
+name: "SQL Server"
+description: "Microsoft SQL Server / Azure SQL to BigQuery migration"
+version: "1.0"
+
+# =============================================================================
+# DATA TYPE MAPPINGS
+# =============================================================================
+type_mappings:
+  # Integer types
+  BIGINT: INT64
+  INT: INT64
+  SMALLINT: INT64
+  TINYINT: INT64
+  
+  # Decimal types
+  DECIMAL: NUMERIC
+  NUMERIC: NUMERIC
+  MONEY: "NUMERIC(19,4)"
+  SMALLMONEY: "NUMERIC(10,4)"
+  
+  # Floating point
+  FLOAT: FLOAT64
+  REAL: FLOAT64
+  
+  # String types
+  CHAR: STRING
+  VARCHAR: STRING
+  TEXT: STRING
+  NCHAR: STRING
+  NVARCHAR: STRING
+  NTEXT: STRING
+  
+  # Unicode max types
+  "VARCHAR(MAX)": STRING
+  "NVARCHAR(MAX)": STRING
+  
+  # Date/Time types
+  DATE: DATE
+  TIME: TIME
+  DATETIME: TIMESTAMP
+  DATETIME2: TIMESTAMP
+  SMALLDATETIME: TIMESTAMP
+  DATETIMEOFFSET: TIMESTAMP
+  
+  # Binary types
+  BINARY: BYTES
+  VARBINARY: BYTES
+  "VARBINARY(MAX)": BYTES
+  IMAGE: BYTES
+  
+  # Other types
+  BIT: BOOL
+  UNIQUEIDENTIFIER: STRING
+  XML: STRING
+  SQL_VARIANT: STRING
+  HIERARCHYID: STRING
+  GEOMETRY: GEOGRAPHY
+  GEOGRAPHY: GEOGRAPHY
+  JSON: JSON              # SQL Server 2016+
+  
+  # Deprecated types (map to modern equivalents)
+  TIMESTAMP: BYTES        # SQL Server TIMESTAMP is actually ROWVERSION
+  ROWVERSION: BYTES
+
+# =============================================================================
+# FILE DETECTION PATTERNS
+# =============================================================================
+file_patterns:
+  ddl:
+    extensions: [".sql", ".ddl"]
+    prefixes: ["D_", "F_", "Dim", "Fact", "dbo."]
+    
+  procedures:
+    extensions: [".sql", ".prc", ".proc"]
+    prefixes: ["sp_", "usp_", "fn_", "ufn_", "tr_"]
+    indicators: ["CREATE PROCEDURE", "CREATE PROC", "CREATE FUNCTION", "CREATE TRIGGER"]
+    
+  etl_exports:
+    extensions: [".dtsx", ".xml", ".ispac"]
+    prefixes: []
+    tool: "ssis"  # SQL Server Integration Services
+
+# =============================================================================
+# TABLE CLASSIFICATION
+# =============================================================================
+table_classification:
+  dimension_prefixes: ["Dim", "DIM_", "D_", "dim_", "Lookup_", "LKP_"]
+  fact_prefixes: ["Fact", "FACT_", "F_", "fact_", "FCT_"]
+  staging_prefixes: ["Stg", "STG_", "stg_", "Stage_", "Temp_", "tmp_", "#"]
+  bridge_prefixes: ["Bridge", "BRG_", "B_"]
+
+# =============================================================================
+# SCD TYPE DETECTION
+# =============================================================================
+scd_detection:
+  type2_tables:
+    - DimCustomer
+    - dim_customer
+    - DimEmployee
+    - dim_employee
+    - DimMember
+    - dim_member
+    - DimAccount
+    - dim_account
+    - DimVendor
+    - dim_vendor
+    - DimOrganization
+    - dim_organization
+    - DimPerson
+    - dim_person
+  
+  type1_tables:
+    # Date/Time
+    - DimDate
+    - dim_date
+    - DimTime
+    - dim_time
+    - DimCalendar
+    # Geography
+    - DimGeography
+    - dim_geography
+    - DimTerritory
+    - dim_territory
+    # Reference
+    - DimStatus
+    - dim_status
+    - DimType
+    - dim_type
+    - DimCategory
+    - dim_category
+    - DimCurrency
+    - dim_currency
+    - DimPromotion
+    - dim_promotion
+  
+  type2_column_indicators:
+    - EffectiveDate
+    - effective_date
+    - ExpirationDate
+    - expiration_date
+    - ValidFrom
+    - valid_from
+    - ValidTo
+    - valid_to
+    - StartDate
+    - start_date
+    - EndDate
+    - end_date
+    - IsCurrent
+    - is_current
+    - CurrentFlag
+    - current_flag
+    - VersionNumber
+    - version_number
+    - RowVersion
+    - SCD_StartDate
+    - SCD_EndDate
+
+  type1_column_indicators:
+    - Code
+    - code
+    - Description
+    - description
+    - Name
+    - name
+
+# =============================================================================
+# INCREMENTAL LOADING PATTERNS
+# =============================================================================
+incremental_patterns:
+  - "^Fact"
+  - "^fact_"
+  - "^F_"
+  - "_Fact$"
+  - "^Stg"
+  - "^stg_"
+  - "_stg$"
+  - "_Transaction"
+  - "_transaction"
+  - "_Log$"
+  - "_log$"
+  - "_Audit$"
+  - "_audit$"
+  - "_History$"
+  - "_history$"
+  - "_Event$"
+  - "_event$"
+  - "_Activity$"
+  - "_activity$"
+  - "_Snapshot$"
+  - "_snapshot$"
+
+# =============================================================================
+# DOMAIN TO DATASET MAPPING
+# =============================================================================
+domain_mapping:
+  "Customer": bq_customer
+  "Sales": bq_sales
+  "Finance": bq_finance
+  "HR": bq_hr
+  "Inventory": bq_inventory
+  "Marketing": bq_marketing
+  "Operations": bq_operations
+  "Reference": bq_reference
+  default: bq_staging
+
+# =============================================================================
+# SQL SERVER-SPECIFIC SETTINGS
+# =============================================================================
+sqlserver_specific:
+  # Handle identity columns
+  convert_identity_to: "GENERATE_UUID()"
+  
+  # Handle SQL Server-specific functions
+  function_mappings:
+    GETDATE: CURRENT_TIMESTAMP
+    GETUTCDATE: CURRENT_TIMESTAMP
+    SYSDATETIME: CURRENT_TIMESTAMP
+    SYSUTCDATETIME: CURRENT_TIMESTAMP
+    ISNULL: IFNULL
+    COALESCE: COALESCE
+    NULLIF: NULLIF
+    IIF: IF
+    CHOOSE: "CASE expression"
+    CONVERT: CAST
+    TRY_CONVERT: SAFE_CAST
+    CAST: CAST
+    TRY_CAST: SAFE_CAST
+    DATEADD: DATE_ADD
+    DATEDIFF: DATE_DIFF
+    DATEPART: EXTRACT
+    DATENAME: FORMAT_TIMESTAMP
+    YEAR: EXTRACT(YEAR FROM)
+    MONTH: EXTRACT(MONTH FROM)
+    DAY: EXTRACT(DAY FROM)
+    EOMONTH: LAST_DAY
+    FORMAT: FORMAT
+    CHARINDEX: STRPOS
+    PATINDEX: "REGEXP_INSTR"
+    LEN: LENGTH
+    DATALENGTH: BYTE_LENGTH
+    LEFT: LEFT
+    RIGHT: RIGHT
+    SUBSTRING: SUBSTRING
+    STUFF: "CONCAT(LEFT(), middle, RIGHT())"
+    REPLACE: REPLACE
+    REPLICATE: REPEAT
+    REVERSE: REVERSE
+    LTRIM: LTRIM
+    RTRIM: RTRIM
+    TRIM: TRIM
+    UPPER: UPPER
+    LOWER: LOWER
+    STRING_AGG: STRING_AGG
+    STRING_SPLIT: SPLIT
+    JSON_VALUE: JSON_VALUE
+    JSON_QUERY: JSON_QUERY
+    OPENJSON: "JSON functions"
+    NEWID: GENERATE_UUID
+    ROW_NUMBER: ROW_NUMBER
+    RANK: RANK
+    DENSE_RANK: DENSE_RANK
+    NTILE: NTILE
+    LAG: LAG
+    LEAD: LEAD
+    FIRST_VALUE: FIRST_VALUE
+    LAST_VALUE: LAST_VALUE
+    PERCENT_RANK: PERCENT_RANK
+    CUME_DIST: CUME_DIST
+    ABS: ABS
+    CEILING: CEIL
+    FLOOR: FLOOR
+    ROUND: ROUND
+    POWER: POWER
+    SQRT: SQRT
+    SIGN: SIGN
+    LOG: LN
+    LOG10: LOG10
+    EXP: EXP
+
+# =============================================================================
+# ANALYSIS PROMPTS
+# =============================================================================
+prompts:
+  schema_analysis: |
+    You are a SQL Server expert. Analyze the following T-SQL DDL.
+    
+    Extract the following information in JSON format:
+    - table_name: The name of the table (without schema prefix)
+    - schema: The schema (e.g., dbo, sales, hr)
+    - columns: Array of {name, type, max_length, precision, scale, nullable, default_value, is_identity, is_computed}
+    - primary_keys: Array of column names forming the primary key
+    - foreign_keys: Array of {columns, references_schema, references_table, references_columns, constraint_name}
+    - indexes: Array of {name, columns, is_unique, is_clustered, included_columns}
+    - check_constraints: Array of {name, definition}
+    - description: Brief description of the table's purpose
+    
+    DDL Content:
+    {content}
+    
+  procedure_analysis: |
+    You are a T-SQL expert. Analyze the following stored procedure, function, or trigger.
+    
+    Extract the following information in JSON format:
+    - object_name: Name of the procedure/function/trigger
+    - object_type: PROCEDURE, FUNCTION, or TRIGGER
+    - schema: The schema (e.g., dbo)
+    - parameters: Array of {name, type, direction (INPUT/OUTPUT), default_value}
+    - return_type: For functions, the return data type
+    - tables_read: Array of [schema].[table] names read
+    - tables_modified: Array of [schema].[table] names modified
+    - temp_tables: Array of temporary tables used (#temp, ##global)
+    - cte_definitions: Array of CTE names used
+    - dynamic_sql: true/false if EXEC or sp_executesql is used
+    - logic_summary: Brief description of the logic
+    - complexity: LOW/MEDIUM/HIGH
+    
+    T-SQL Content:
+    {content}
+    
+  etl_analysis: |
+    You are an SSIS (SQL Server Integration Services) expert. Analyze the following SSIS package.
+    
+    Extract the following information in JSON format:
+    - package_name: Name of the SSIS package
+    - project: SSIS project name if available
+    - connection_managers: Array of data sources
+    - data_flow_tasks: Array of {name, sources, transformations, destinations}
+    - control_flow: Array of tasks and their sequence
+    - variables: Array of package variables
+    - parameters: Array of package/project parameters
+    - logic_summary: Brief description of the ETL logic
+    
+    SSIS Content:
+    {content}

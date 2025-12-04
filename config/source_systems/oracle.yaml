@@ -1,0 +1,284 @@
+# Oracle Database to BigQuery Migration Config
+# Supports Oracle 11g, 12c, 19c, 21c
+
+name: "Oracle"
+description: "Oracle Database to BigQuery migration"
+version: "1.0"
+
+# =============================================================================
+# DATA TYPE MAPPINGS
+# =============================================================================
+type_mappings:
+  # Numeric types
+  NUMBER: NUMERIC
+  INTEGER: INT64
+  INT: INT64
+  SMALLINT: INT64
+  FLOAT: FLOAT64
+  BINARY_FLOAT: FLOAT64
+  BINARY_DOUBLE: FLOAT64
+  REAL: FLOAT64
+  
+  # String types
+  VARCHAR2: STRING
+  VARCHAR: STRING
+  CHAR: STRING
+  NCHAR: STRING
+  NVARCHAR2: STRING
+  CLOB: STRING
+  NCLOB: STRING
+  LONG: STRING
+  
+  # Date/Time types
+  DATE: TIMESTAMP          # Oracle DATE includes time
+  TIMESTAMP: TIMESTAMP
+  "TIMESTAMP WITH TIME ZONE": TIMESTAMP
+  "TIMESTAMP WITH LOCAL TIME ZONE": TIMESTAMP
+  "INTERVAL YEAR TO MONTH": STRING
+  "INTERVAL DAY TO SECOND": STRING
+  
+  # Binary types
+  RAW: BYTES
+  "LONG RAW": BYTES
+  BLOB: BYTES
+  BFILE: STRING            # External file reference - store as path
+  
+  # Other types
+  ROWID: STRING
+  UROWID: STRING
+  XMLTYPE: STRING
+  SDO_GEOMETRY: GEOGRAPHY  # Oracle Spatial
+  JSON: JSON               # Oracle 21c+
+  BOOLEAN: BOOL            # Oracle 23c+
+
+# =============================================================================
+# FILE DETECTION PATTERNS
+# =============================================================================
+file_patterns:
+  ddl:
+    extensions: [".sql", ".ddl", ".tab"]
+    prefixes: ["D_", "F_", "DIM_", "FACT_", "STG_"]
+    
+  procedures:
+    extensions: [".sql", ".prc", ".fnc", ".pkg", ".pkb", ".pks"]
+    prefixes: ["SP_", "PKG_", "FN_", "PRC_"]
+    indicators: ["CREATE OR REPLACE PROCEDURE", "CREATE OR REPLACE FUNCTION", "CREATE OR REPLACE PACKAGE"]
+    
+  etl_exports:
+    extensions: [".xml", ".XML"]
+    prefixes: []
+    tool: "odi"  # Oracle Data Integrator
+
+# =============================================================================
+# TABLE CLASSIFICATION
+# =============================================================================
+table_classification:
+  dimension_prefixes: ["D_", "DIM_", "DM_", "LKP_", "REF_"]
+  fact_prefixes: ["F_", "FACT_", "FCT_", "AGG_"]
+  staging_prefixes: ["STG_", "STAGE_", "TMP_", "TEMP_", "WRK_", "WORK_"]
+  bridge_prefixes: ["B_", "BRG_", "BRIDGE_"]
+
+# =============================================================================
+# SCD TYPE DETECTION
+# =============================================================================
+scd_detection:
+  type2_tables:
+    - customer
+    - dim_customer
+    - d_customer
+    - employee
+    - dim_employee
+    - d_employee
+    - member
+    - dim_member
+    - vendor
+    - dim_vendor
+    - supplier
+    - dim_supplier
+    - account
+    - dim_account
+    - party
+    - dim_party
+  
+  type1_tables:
+    # Date dimensions
+    - dim_date
+    - d_date
+    - dim_time
+    - d_time
+    - dim_calendar
+    # Geography
+    - dim_geography
+    - dim_region
+    - dim_country
+    - dim_state
+    - dim_city
+    # Reference data
+    - dim_status
+    - dim_type
+    - dim_category
+    - lkp_status
+    - lkp_type
+    - ref_code
+    # Currency
+    - dim_currency
+    - ref_currency
+  
+  type2_column_indicators:
+    - effective_date
+    - eff_dt
+    - expiration_date
+    - exp_dt
+    - valid_from_date
+    - valid_to_date
+    - start_date
+    - end_date
+    - current_flag
+    - is_current
+    - active_flag
+    - version_number
+    - row_wid
+    - w_insert_dt
+    - w_update_dt
+
+  type1_column_indicators:
+    - code
+    - description
+    - name
+    - short_desc
+    - long_desc
+
+# =============================================================================
+# INCREMENTAL LOADING PATTERNS
+# =============================================================================
+incremental_patterns:
+  - "^f_"
+  - "^fact_"
+  - "^fct_"
+  - "_fact$"
+  - "^stg_"
+  - "^stage_"
+  - "_stg$"
+  - "_txn$"
+  - "_transaction"
+  - "_log$"
+  - "_audit$"
+  - "_hist$"
+  - "_history$"
+  - "_event$"
+  - "_activity$"
+  - "^agg_"          # Aggregate tables
+  - "_snapshot$"
+
+# =============================================================================
+# DOMAIN TO DATASET MAPPING
+# =============================================================================
+domain_mapping:
+  "Customer": bq_customer
+  "Sales": bq_sales
+  "Finance": bq_finance
+  "HR": bq_hr
+  "Supply Chain": bq_supply_chain
+  "Marketing": bq_marketing
+  "Operations": bq_operations
+  "Reference": bq_reference
+  default: bq_staging
+
+# =============================================================================
+# ORACLE-SPECIFIC SETTINGS
+# =============================================================================
+oracle_specific:
+  # Handle Oracle sequences
+  convert_sequences_to: "GENERATE_UUID()"  # or "ROW_NUMBER()"
+  
+  # Handle Oracle-specific functions
+  function_mappings:
+    NVL: IFNULL
+    NVL2: "IF(condition, value_if_not_null, value_if_null)"
+    DECODE: CASE
+    SYSDATE: CURRENT_TIMESTAMP
+    SYSTIMESTAMP: CURRENT_TIMESTAMP
+    TO_DATE: PARSE_TIMESTAMP
+    TO_CHAR: FORMAT_TIMESTAMP
+    TRUNC: DATE_TRUNC
+    ADD_MONTHS: DATE_ADD
+    MONTHS_BETWEEN: DATE_DIFF
+    ROWNUM: ROW_NUMBER
+    LISTAGG: STRING_AGG
+    WM_CONCAT: STRING_AGG
+    REGEXP_LIKE: REGEXP_CONTAINS
+    INSTR: STRPOS
+    SUBSTR: SUBSTRING
+    LENGTH: LENGTH
+    LPAD: LPAD
+    RPAD: RPAD
+    TRIM: TRIM
+    UPPER: UPPER
+    LOWER: LOWER
+    INITCAP: INITCAP
+    REPLACE: REPLACE
+    COALESCE: COALESCE
+    GREATEST: GREATEST
+    LEAST: LEAST
+    ABS: ABS
+    ROUND: ROUND
+    CEIL: CEIL
+    FLOOR: FLOOR
+    MOD: MOD
+    POWER: POWER
+    SQRT: SQRT
+    SIGN: SIGN
+
+# =============================================================================
+# ANALYSIS PROMPTS
+# =============================================================================
+prompts:
+  schema_analysis: |
+    You are an Oracle Database expert. Analyze the following Oracle DDL.
+    
+    Extract the following information in JSON format:
+    - table_name: The name of the table (without schema prefix)
+    - schema: The schema/owner if specified
+    - columns: Array of {name, type, precision, scale, nullable, default_value}
+    - primary_keys: Array of column names forming the primary key
+    - foreign_keys: Array of {columns, references_table, references_columns, constraint_name}
+    - indexes: Array of {name, columns, is_unique, tablespace}
+    - partitioning: {type, columns} if partitioned
+    - description: Brief description of the table's purpose
+    
+    DDL Content:
+    {content}
+    
+  procedure_analysis: |
+    You are an Oracle PL/SQL expert. Analyze the following stored procedure, function, or package.
+    
+    Extract the following information in JSON format:
+    - object_name: Name of the procedure/function/package
+    - object_type: PROCEDURE, FUNCTION, or PACKAGE
+    - parameters: Array of {name, type, direction (IN/OUT/IN OUT), default_value}
+    - return_type: For functions, the return data type
+    - tables_read: Array of table names read
+    - tables_modified: Array of table names modified
+    - cursors: Array of cursor names and their queries
+    - exceptions: Array of exception handlers
+    - logic_summary: Brief description of the logic
+    - complexity: LOW/MEDIUM/HIGH
+    
+    PL/SQL Content:
+    {content}
+    
+  etl_analysis: |
+    You are an Oracle Data Integrator (ODI) expert. Analyze the following ODI export.
+    
+    Extract the following information in JSON format:
+    - mapping_name: Name of the mapping/interface
+    - project: ODI project name
+    - sources: Array of source datastores
+    - targets: Array of target datastores
+    - transformations: Array of transformation components
+    - joins: Array of join conditions
+    - filters: Array of filter conditions
+    - logic_summary: Brief description of the ETL logic
+    
+    ODI Export Content:
+    {content}

@@ -1,0 +1,418 @@
+# Teradata to BigQuery Migration Config
+# Supports Teradata 15.x, 16.x, 17.x
+
+name: "Teradata"
+description: "Teradata to BigQuery migration"
+version: "1.0"
+
+# =============================================================================
+# DATA TYPE MAPPINGS
+# =============================================================================
+type_mappings:
+  # Integer types
+  BYTEINT: INT64
+  SMALLINT: INT64
+  INTEGER: INT64
+  INT: INT64
+  BIGINT: INT64
+  
+  # Decimal types
+  DECIMAL: NUMERIC
+  NUMERIC: NUMERIC
+  NUMBER: NUMERIC
+  
+  # Floating point
+  FLOAT: FLOAT64
+  REAL: FLOAT64
+  "DOUBLE PRECISION": FLOAT64
+  
+  # String types
+  CHAR: STRING
+  CHARACTER: STRING
+  VARCHAR: STRING
+  "CHARACTER VARYING": STRING
+  LONG VARCHAR: STRING
+  CLOB: STRING
+  
+  # Unicode string types
+  "CHAR CHARACTER SET UNICODE": STRING
+  "VARCHAR CHARACTER SET UNICODE": STRING
+  "CLOB CHARACTER SET UNICODE": STRING
+  
+  # Binary types
+  BYTE: BYTES
+  VARBYTE: BYTES
+  BLOB: BYTES
+  
+  # Date/Time types
+  DATE: DATE
+  TIME: TIME
+  "TIME WITH TIME ZONE": TIME
+  TIMESTAMP: TIMESTAMP
+  "TIMESTAMP WITH TIME ZONE": TIMESTAMP
+  
+  # Interval types (convert to STRING or INT64)
+  "INTERVAL YEAR": STRING
+  "INTERVAL YEAR TO MONTH": STRING
+  "INTERVAL MONTH": STRING
+  "INTERVAL DAY": STRING
+  "INTERVAL DAY TO HOUR": STRING
+  "INTERVAL DAY TO MINUTE": STRING
+  "INTERVAL DAY TO SECOND": STRING
+  "INTERVAL HOUR": STRING
+  "INTERVAL HOUR TO MINUTE": STRING
+  "INTERVAL HOUR TO SECOND": STRING
+  "INTERVAL MINUTE": STRING
+  "INTERVAL MINUTE TO SECOND": STRING
+  "INTERVAL SECOND": STRING
+  
+  # Period types (Teradata temporal)
+  "PERIOD(DATE)": STRING
+  "PERIOD(TIME)": STRING
+  "PERIOD(TIME WITH TIME ZONE)": STRING
+  "PERIOD(TIMESTAMP)": STRING
+  "PERIOD(TIMESTAMP WITH TIME ZONE)": STRING
+  
+  # Geospatial types
+  ST_GEOMETRY: GEOGRAPHY
+  "MBR": STRING
+  
+  # JSON type (Teradata 15.10+)
+  JSON: JSON
+  
+  # XML type
+  XML: STRING
+  
+  # Array/VARRAY types
+  ARRAY: "ARRAY<STRING>"
+
+# =============================================================================
+# FILE DETECTION PATTERNS
+# =============================================================================
+file_patterns:
+  ddl:
+    extensions: [".sql", ".ddl", ".bteq", ".tpt"]
+    prefixes: ["D_", "F_", "DIM_", "FACT_", "STG_"]
+    
+  procedures:
+    extensions: [".sql", ".spl", ".bteq"]
+    prefixes: ["SP_", "USP_", "PROC_", "MAC_"]
+    indicators: ["CREATE PROCEDURE", "REPLACE PROCEDURE", "CREATE MACRO", "REPLACE MACRO"]
+    
+  etl_exports:
+    extensions: [".xml", ".json"]
+    prefixes: []
+    tool: "informatica"  # Common with Teradata
+
+# =============================================================================
+# TABLE CLASSIFICATION
+# =============================================================================
+table_classification:
+  dimension_prefixes: ["D_", "DIM_", "DM_", "LKP_", "REF_", "W_"]
+  fact_prefixes: ["F_", "FACT_", "FCT_", "AGG_", "W_"]
+  staging_prefixes: ["STG_", "STAGE_", "TMP_", "TEMP_", "WRK_", "WORK_", "VT_"]
+  bridge_prefixes: ["B_", "BRG_", "BRIDGE_"]
+
+# =============================================================================
+# SCD TYPE DETECTION
+# =============================================================================
+scd_detection:
+  type2_tables:
+    - customer
+    - dim_customer
+    - d_customer
+    - w_customer
+    - employee
+    - dim_employee
+    - d_employee
+    - w_employee
+    - member
+    - dim_member
+    - d_member
+    - account
+    - dim_account
+    - d_account
+    - w_account
+    - party
+    - dim_party
+    - d_party
+    - w_party
+    - organization
+    - dim_organization
+  
+  type1_tables:
+    # Date/Time
+    - dim_date
+    - d_date
+    - w_day_d
+    - dim_time
+    - d_time
+    - w_time_d
+    - dim_calendar
+    # Geography
+    - dim_geography
+    - d_geography
+    - w_geo_d
+    - dim_region
+    - dim_country
+    # Reference
+    - dim_status
+    - d_status
+    - w_status_d
+    - dim_type
+    - d_type
+    - dim_category
+    - d_category
+    - dim_currency
+    - d_currency
+    - w_currency_d
+  
+  type2_column_indicators:
+    - effective_date
+    - eff_dt
+    - eff_date
+    - expiration_date
+    - exp_dt
+    - exp_date
+    - valid_from
+    - valid_to
+    - start_dt
+    - end_dt
+    - current_flg
+    - current_flag
+    - is_current
+    - active_flg
+    - row_wid
+    - w_insert_dt
+    - w_update_dt
+    - etl_proc_wid
+
+  type1_column_indicators:
+    - code
+    - cd
+    - description
+    - desc
+    - name
+    - nm
+
+# =============================================================================
+# INCREMENTAL LOADING PATTERNS
+# =============================================================================
+incremental_patterns:
+  - "^F_"
+  - "^FACT_"
+  - "^FCT_"
+  - "_FACT$"
+  - "^STG_"
+  - "^STAGE_"
+  - "_STG$"
+  - "_TXN$"
+  - "_TRANS$"
+  - "_LOG$"
+  - "_AUDIT$"
+  - "_HIST$"
+  - "_HISTORY$"
+  - "_EVENT$"
+  - "_ACTIVITY$"
+  - "^AGG_"
+  - "_SNAPSHOT$"
+
+# =============================================================================
+# DOMAIN TO DATASET MAPPING
+# =============================================================================
+domain_mapping:
+  "Customer": bq_customer
+  "Sales": bq_sales
+  "Finance": bq_finance
+  "HR": bq_hr
+  "Supply Chain": bq_supply_chain
+  "Marketing": bq_marketing
+  "Operations": bq_operations
+  "Reference": bq_reference
+  default: bq_staging
+
+# =============================================================================
+# TERADATA-SPECIFIC SETTINGS
+# =============================================================================
+teradata_specific:
+  # Handle IDENTITY columns
+  convert_identity_to: "GENERATE_UUID()"
+  
+  # Handle Teradata-specific functions
+  function_mappings:
+    # Date/Time functions
+    CURRENT_DATE: CURRENT_DATE
+    CURRENT_TIME: CURRENT_TIME
+    CURRENT_TIMESTAMP: CURRENT_TIMESTAMP
+    DATE: DATE
+    TIME: TIME
+    TIMESTAMP: TIMESTAMP
+    ADD_MONTHS: DATE_ADD
+    MONTHS_BETWEEN: DATE_DIFF
+    LAST_DAY: LAST_DAY
+    NEXT_DAY: "DATE_ADD with logic"
+    TRUNC: DATE_TRUNC
+    EXTRACT: EXTRACT
+    
+    # String functions
+    TRIM: TRIM
+    LTRIM: LTRIM
+    RTRIM: RTRIM
+    UPPER: UPPER
+    LOWER: LOWER
+    CHAR2HEXINT: TO_HEX
+    CHARACTERS: LENGTH
+    CHARACTER_LENGTH: LENGTH
+    CHAR_LENGTH: LENGTH
+    OCTET_LENGTH: BYTE_LENGTH
+    INDEX: STRPOS
+    POSITION: STRPOS
+    SUBSTR: SUBSTRING
+    SUBSTRING: SUBSTRING
+    OREPLACE: REPLACE
+    OTRANSLATE: TRANSLATE
+    LPAD: LPAD
+    RPAD: RPAD
+    REVERSE: REVERSE
+    CONCAT: CONCAT
+    "||": CONCAT
+    
+    # Null handling
+    COALESCE: COALESCE
+    NULLIF: NULLIF
+    NULLIFZERO: "NULLIF(x, 0)"
+    ZEROIFNULL: "IFNULL(x, 0)"
+    NVL: IFNULL
+    NVL2: "IF(x IS NOT NULL, y, z)"
+    
+    # Type conversion
+    CAST: CAST
+    TRYCAST: SAFE_CAST
+    TO_CHAR: FORMAT_TIMESTAMP
+    TO_DATE: PARSE_DATE
+    TO_TIMESTAMP: PARSE_TIMESTAMP
+    TO_NUMBER: CAST
+    
+    # Numeric functions
+    ABS: ABS
+    CEIL: CEIL
+    CEILING: CEIL
+    FLOOR: FLOOR
+    ROUND: ROUND
+    TRUNC: TRUNC
+    MOD: MOD
+    POWER: POWER
+    SQRT: SQRT
+    EXP: EXP
+    LN: LN
+    LOG: LOG
+    SIGN: SIGN
+    RANDOM: RAND
+    GREATEST: GREATEST
+    LEAST: LEAST
+    
+    # Aggregate functions
+    SUM: SUM
+    AVG: AVG
+    COUNT: COUNT
+    MIN: MIN
+    MAX: MAX
+    STDDEV_POP: STDDEV_POP
+    STDDEV_SAMP: STDDEV_SAMP
+    VAR_POP: VAR_POP
+    VAR_SAMP: VAR_SAMP
+    CORR: CORR
+    COVAR_POP: COVAR_POP
+    COVAR_SAMP: COVAR_SAMP
+    
+    # Window functions
+    ROW_NUMBER: ROW_NUMBER
+    RANK: RANK
+    DENSE_RANK: DENSE_RANK
+    PERCENT_RANK: PERCENT_RANK
+    CUME_DIST: CUME_DIST
+    NTILE: NTILE
+    LAG: LAG
+    LEAD: LEAD
+    FIRST_VALUE: FIRST_VALUE
+    LAST_VALUE: LAST_VALUE
+    NTH_VALUE: NTH_VALUE
+    
+    # Teradata-specific
+    QUALIFY: "-- Use subquery with ROW_NUMBER"
+    SAMPLE: "-- Use TABLESAMPLE or RAND()"
+    TOP: LIMIT
+    HASHROW: FARM_FINGERPRINT
+    HASHBUCKET: MOD
+    HASHAMP: MOD
+    
+    # JSON functions (Teradata 15.10+)
+    JSON_EXTRACT: JSON_EXTRACT
+    JSON_EXTRACT_SCALAR: JSON_VALUE
+    JSON_KEYS: JSON_EXTRACT_KEYS
+    
+    # Geospatial
+    ST_AREA: ST_AREA
+    ST_DISTANCE: ST_DISTANCE
+    ST_CONTAINS: ST_CONTAINS
+    ST_INTERSECTS: ST_INTERSECTS
+    ST_WITHIN: ST_WITHIN
+
+# =============================================================================
+# ANALYSIS PROMPTS
+# =============================================================================
+prompts:
+  schema_analysis: |
+    You are a Teradata expert. Analyze the following Teradata DDL.
+    
+    Extract the following information in JSON format:
+    - table_name: The name of the table
+    - database: The database name
+    - table_kind: SET or MULTISET
+    - columns: Array of {name, type, format, nullable, default_value, title, compress_values}
+    - primary_index: {columns, is_unique} - Teradata's primary index
+    - secondary_indexes: Array of {name, columns, is_unique}
+    - partition_by: Partitioning expression if partitioned
+    - fallback: true/false for FALLBACK protection
+    - journal: BEFORE/AFTER/DUAL journal settings
+    - stats_columns: Columns with collected statistics
+    - description: Brief description of the table's purpose
+    
+    DDL Content:
+    {content}
+    
+  procedure_analysis: |
+    You are a Teradata SQL expert. Analyze the following stored procedure or macro.
+    
+    Extract the following information in JSON format:
+    - object_name: Name of the procedure/macro
+    - object_type: PROCEDURE or MACRO
+    - database: The database
+    - parameters: Array of {name, type, direction (IN/OUT/INOUT)}
+    - sql_security: CREATOR or DEFINER
+    - tables_read: Array of database.table names read
+    - tables_modified: Array of database.table names modified
+    - volatile_tables: Array of volatile tables used
+    - cursors: Array of cursor definitions
+    - dynamic_sql: true/false if EXECUTE IMMEDIATE is used
+    - logic_summary: Brief description of the logic
+    - complexity: LOW/MEDIUM/HIGH
+    
+    Teradata Content:
+    {content}
+    
+  etl_analysis: |
+    You are an ETL expert familiar with Teradata environments. Analyze the following ETL definition.
+    
+    Extract the following information in JSON format:
+    - job_name: Name of the ETL job
+    - tool: ETL tool used (Informatica, BTEQ, TPT, etc.)
+    - sources: Array of source tables/files
+    - targets: Array of target tables
+    - transformations: Array of transformation steps
+    - load_type: FULL, INCREMENTAL, MERGE, UPSERT
+    - error_handling: Error handling approach
+    - logic_summary: Brief description of the ETL logic
+    
+    ETL Content:
+    {content}
