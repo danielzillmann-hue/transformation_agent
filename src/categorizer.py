@@ -1,15 +1,19 @@
 import json
 import os
 import logging
+from typing import Optional
 from src.llm_client import LLMClient
 from src.json_utils import safe_parse_json, extract_json, repair_json
+from src.adapters.registry import get_adapter
 
 logger = logging.getLogger(__name__)
 
 class DataCategorizer:
-    def __init__(self, project_id="dan-sandpit", output_dir="output"):
+    def __init__(self, project_id="dan-sandpit", output_dir="output", source_system: Optional[str] = None):
         self.output_dir = output_dir
         self.llm_client = LLMClient(project_id)
+        self.adapter = get_adapter(source_system)
+        logger.info(f"DataCategorizer initialized for source system: {self.adapter.name}")
 
     def categorize(self, analysis_results, status_callback=None):
         """Categorizes table fields by business domain."""

@@ -54,6 +54,7 @@ def run_pipeline(config: dict, status_callback: StatusCallback = None) -> dict:
     bucket = config.get("bucket")
     local_files = config.get("local_files", [])
     project_id = config.get("project") or "dan-sandpit"
+    source_system = config.get("source_system")  # e.g., 'sybase', 'oracle', 'sqlserver'
     skip_analysis = config.get("skip_analysis", False)
     do_categorize = config.get("categorize", False)
     do_translate = config.get("translate", False)
@@ -100,7 +101,7 @@ def run_pipeline(config: dict, status_callback: StatusCallback = None) -> dict:
             raise ValueError(f"Unsupported source_type: {source_type}")
 
         status("analysis", f"Analyzing {len(files)} files with LLM...")
-        analyzer = AnalysisEngine(project_id=project_id)
+        analyzer = AnalysisEngine(project_id=project_id, source_system=source_system)
         results = analyzer.analyze(files, status_callback=status)
 
     status("reporting", "Generating analysis report...")
@@ -116,7 +117,7 @@ def run_pipeline(config: dict, status_callback: StatusCallback = None) -> dict:
 
     if do_categorize:
         status("categorization", "Categorizing data by business domain...")
-        categorizer = DataCategorizer(project_id=project_id, output_dir=output_dir)
+        categorizer = DataCategorizer(project_id=project_id, output_dir=output_dir, source_system=source_system)
         categorizer.categorize(results, status_callback=status)
 
         import json
@@ -136,12 +137,12 @@ def run_pipeline(config: dict, status_callback: StatusCallback = None) -> dict:
                 categorization_results = {"domains": [], "categorizations": {}}
 
         status("translation", "Translating schemas to BigQuery/Dataform...")
-        translator = SchemaTranslator(project_id=project_id, output_dir=output_dir)
+        translator = SchemaTranslator(project_id=project_id, output_dir=output_dir, source_system=source_system)
         translator.translate(results, categorization_results, status_callback=status)
 
     if do_validate:
         status("validation", "Generating validation test cases...")
-        validator = ValidationEngine(project_id=project_id, output_dir=output_dir)
+        validator = ValidationEngine(project_id=project_id, output_dir=output_dir, source_system=source_system)
         validator.validate(results, status_callback=status)
 
     dataform_dir = os.path.join(output_dir, "dataform") if os.path.isdir(os.path.join(output_dir, "dataform")) else None

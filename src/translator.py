@@ -2,20 +2,29 @@ import json
 import os
 import re
 import logging
+from typing import Optional
 from google.cloud import storage
 from src.llm_client import LLMClient
 from src.json_utils import safe_parse_json
+from src.adapters.registry import get_adapter
+from src.adapters.base import SourceAdapter
 
 logger = logging.getLogger(__name__)
 
 class SchemaTranslator:
-    def __init__(self, project_id="dan-sandpit", output_dir="output"):
+    def __init__(self, project_id="dan-sandpit", output_dir="output", source_system: Optional[str] = None):
         self.output_dir = output_dir
         self.dataform_dir = os.path.join(output_dir, "dataform")
         self.llm_client = LLMClient(project_id)
         
-        # Domain to dataset mapping
-        self.domain_to_dataset = {
+        # Load source system adapter
+        self.adapter = get_adapter(source_system)
+        logger.info(f"SchemaTranslator initialized for source system: {self.adapter.name}")
+        
+        # Domain to dataset mapping - use adapter's mapping with fallback
+        self.domain_to_dataset = self.adapter.get_domain_mapping()
+        # Add legacy Crown mappings if not present (backward compatibility)
+        legacy_mappings = {
             "Customer & Loyalty Management": "crown_customer_loyalty",
             "Casino Operations & Locations": "crown_casino_operations",
             "Gaming Products & Assets": "crown_gaming_products",
@@ -24,94 +33,28 @@ class SchemaTranslator:
             "Regulatory & Compliance": "crown_regulatory",
             "Reference & Time Data": "crown_reference"
         }
+        for k, v in legacy_mappings.items():
+            if k not in self.domain_to_dataset:
+                self.domain_to_dataset[k] = v
         
-        # SCD Type 2 dimension tables - known tables that require history tracking
-        # Patron dimension is explicitly SCD Type 2 per CW data flow documentation
-        # This serves as a fallback/override when LLM detection is unavailable
-        # ONLY tables representing individual people should be SCD Type 2
-        self.scd_type2_tables = {
-            "patron", "d_patron", "dim_patron", "patron_dim",
-            "customer", "d_customer", "dim_customer",
-            "member", "d_member", "dim_member",
-            "employee", "d_employee", "dim_employee"
-        }
+        # SCD Type 2 tables from adapter
+        self.scd_type2_tables = self.adapter.get_type2_tables()
         
-        # Tables that should NEVER be SCD Type 2 (reference/lookup tables)
-        # These override LLM detection to prevent over-classification
-        self.scd_type1_tables = {
-            # Age/demographic lookups
-            "age", "d_age", "dim_age", "age_range", "d_age_range",
-            # Location/site reference
-            "site", "d_site", "dim_site", "location", "d_location", "dim_location",
-            "casinolocation", "d_casinolocation", "casinolocationdet", "d_casinolocationdet",
-            "terminallocation", "d_terminallocation", "terminallocationdet", "d_terminallocationdet",
-            # Product/machine reference
-            "product", "d_product", "dim_product", "productdet", "d_productdet",
-            "gamingmachine", "d_gamingmachine", "dim_gamingmachine",
-            "machine", "d_machine", "dim_machine",
-            # Organizational reference
-            "department", "d_department", "dim_department",
-            "license", "d_license", "gaminglicense", "d_gaminglicense",
-            # Program/tier reference
-            "plyr_prog", "d_plyr_prog", "player_program",
-            # Date/time dimensions
-            "date", "d_date", "dim_date", "time", "d_time", "dim_time",
-            # Other common reference tables
-            "currency", "d_currency", "country", "d_country", "state", "d_state",
-            "status", "d_status", "type", "d_type", "code", "d_code"
-        }
+        # SCD Type 1 tables from adapter
+        self.scd_type1_tables = self.adapter.get_type1_tables()
         
-        # Tables that should use incremental loading (fact tables, large dimensions)
-        # Used as fallback patterns when LLM detection is unavailable
-        self.incremental_table_patterns = [
-            r"^f_",      # Fact tables
-            r"^fact_",
-            r"_fact$",
-            r"^stg_",    # Staging tables
-            r"_stg$",
-            r"^trans",   # Transaction tables
-            r"_trans$",
-            r"_log$",    # Log/audit tables
-            r"_hist$",   # History tables
-            r"_activity",
-            r"_event"
-        ]
+        # Incremental patterns - adapter handles this via is_incremental_table()
+        # Keep for backward compatibility
+        self.incremental_table_patterns = []
         
         # Cache for LLM-detected SCD types to avoid repeated calls
         self._scd_type_cache = {}
         
         # Control whether to use LLM for SCD detection (can be disabled for performance)
-        # Set via environment variable: SCD_DETECTION_USE_LLM=false to disable
         self._use_llm_for_scd = os.getenv("SCD_DETECTION_USE_LLM", "true").lower() != "false"
         
-        # Sybase to BigQuery type mapping (built-in defaults)
-        self.type_mappings = {
-            "INT": "INT64",
-            "INTEGER": "INT64",
-            "SMALLINT": "INT64",
-            "TINYINT": "INT64",
-            "BIGINT": "INT64",
-            "DECIMAL": "NUMERIC",
-            "NUMERIC": "NUMERIC",
-            "MONEY": "NUMERIC(19,4)",
-            "SMALLMONEY": "NUMERIC(10,4)",
-            "FLOAT": "FLOAT64",
-            "REAL": "FLOAT64",
-            "CHAR": "STRING",
-            "VARCHAR": "STRING",
-            "TEXT": "STRING",
-            "NCHAR": "STRING",
-            "NVARCHAR": "STRING",
-            "NTEXT": "STRING",
-            "DATETIME": "TIMESTAMP",
-            "SMALLDATETIME": "TIMESTAMP",
-            "DATE": "DATE",
-            "TIME": "TIME",
-            "BIT": "BOOL",
-            "BINARY": "BYTES",
-            "VARBINARY": "BYTES",
-            "IMAGE": "BYTES"
-        }
+        # Type mappings from adapter
+        self.type_mappings = self.adapter.get_type_mappings()
 
         # Track which types came from overrides and which were not mapped at all.
         self._override_types = set()

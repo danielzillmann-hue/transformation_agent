@@ -11,8 +11,9 @@ from fastapi.responses import JSONResponse, HTMLResponse, FileResponse, Streamin
 from google.cloud import storage
 
 from src.service import run_pipeline
+from src.adapters.registry import get_registry
 
-app = FastAPI(title="Sybase to BigQuery Agentic Migration API")
+app = FastAPI(title="Database to BigQuery Agentic Migration API")
 
 BASE_OUTPUT_ROOT = "runs"
 
@@ -36,6 +37,10 @@ def _list_gcs_buckets(project_id: str = "dan-sandpit") -> list[str]:
 async def index():
     project_id = os.getenv("GCP_PROJECT_ID", "dan-sandpit")
     buckets = _list_gcs_buckets(project_id)
+    
+    # Get available source systems
+    registry = get_registry()
+    source_systems = registry.list_available()
 
     def _options(selected: Optional[str] = None) -> str:
         if not buckets:
@@ -45,6 +50,14 @@ async def index():
             sel = " selected" if selected and name == selected else ""
             opts.append(f"<option value=\"{name}\"{sel}>{name}</option>")
         return "".join(opts)
+    
+    def _source_system_options(selected: str = "sybase") -> str:
+        opts = []
+        for name in source_systems:
+            sel = " selected" if name == selected else ""
+            display_name = name.replace("_", " ").title()
+            opts.append(f"<option value=\"{name}\"{sel}>{display_name}</option>")
+        return "".join(opts)
 
     source_bucket_default = "crownpoc" if "crownpoc" in buckets else (buckets[0] if buckets else "")
     archive_bucket_placeholder = "e.g. crownpoc-results"
@@ -52,7 +65,7 @@ async def index():
     return f"""<!doctype html>
     <html>
     <head>
-      <title>Sybase to BigQuery Agentic Migration</title>
+      <title>Database to BigQuery Agentic Migration</title>
       <style>
         :root {{
           color-scheme: light dark;
@@ -197,19 +210,24 @@ async def index():
         <header class="header">
           <div class="title-row">
             <div class="pill">Agentic migration</div>
-            <h1>Sybase → BigQuery transformation agent</h1>
+            <h1>Database → BigQuery transformation agent</h1>
           </div>
           <p class="subtitle">
             Orchestrate schema analysis, business-domain mapping, Dataform generation,
-            and validation tests for Sybase + Informatica workloads.
+            and validation tests for multiple source database systems.
           </p>
         </header>
 
         <div class="grid">
           <section class="card">
             <h2>Run using GCS bucket</h2>
-            <p>Point the agent at a Sybase / Informatica export in a Cloud Storage bucket.</p>
+            <p>Point the agent at a database export in a Cloud Storage bucket.</p>
             <form action="/runs/gcs" method="post">
+              <label>Source Database System
+                <select name="source_system" required>
+                  {_source_system_options("sybase")}
+                </select>
+              </label>
               <label>GCS Bucket
                 <select name="bucket" required>
                   {_options(source_bucket_default)}
@@ -246,8 +264,13 @@ async def index():
 
           <section class="card">
             <h2>Run using local file upload</h2>
-            <p>Upload Sybase DDL / stored procedures and Informatica XML exports directly.</p>
+            <p>Upload DDL, stored procedures, and ETL exports directly.</p>
             <form action="/runs/local" method="post" enctype="multipart/form-data">
+              <label>Source Database System
+                <select name="source_system" required>
+                  {_source_system_options("sybase")}
+                </select>
+              </label>
               <label>Files
                 <input type="file" name="files" multiple required />
               </label>
@@ -514,6 +537,7 @@ def _progress_page_html(run_id: str) -> str:
 async def start_run_gcs(
     request: Request,
     bucket: str = Form(...),
+    source_system: str = Form("sybase"),
     project: Optional[str] = Form(None),
     archive_bucket: Optional[str] = Form(None),
     skip_analysis: bool = Form(False),
@@ -526,6 +550,7 @@ async def start_run_gcs(
     config = {
         "source_type": "gcs",
         "bucket": bucket,
+        "source_system": source_system,
         "project": project,
         "archive_bucket": archive_bucket,
         "skip_analysis": skip_analysis,
@@ -557,6 +582,7 @@ async def start_run_gcs(
 async def start_run_local(
     request: Request,
     files: List[UploadFile] = File(...),
+    source_system: str = Form("sybase"),
     project: Optional[str] = Form(None),
     archive_bucket: Optional[str] = Form(None),
     skip_analysis: bool = Form(False),
@@ -580,6 +606,7 @@ async def start_run_local(
     config = {
         "source_type": "local",
         "local_files": local_paths,
+        "source_system": source_system,
         "project": project,
         "archive_bucket": archive_bucket,
         "skip_analysis": skip_analysis,
