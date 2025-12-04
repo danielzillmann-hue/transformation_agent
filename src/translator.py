@@ -9,7 +9,7 @@ from src.json_utils import safe_parse_json
 logger = logging.getLogger(__name__)
 
 class SchemaTranslator:
-    def __init__(self, project_id="gcp-sandpit-intelia", output_dir="output"):
+    def __init__(self, project_id="dan-sandpit", output_dir="output"):
         self.output_dir = output_dir
         self.dataform_dir = os.path.join(output_dir, "dataform")
         self.llm_client = LLMClient(project_id)
@@ -230,12 +230,12 @@ class SchemaTranslator:
         
         # Create dataform.json
         dataform_config = {
-            "defaultProject": "gcp-sandpit-intelia",
+            "defaultProject": "dan-sandpit",
             "defaultLocation": "australia-southeast2",
             "defaultDataset": "crown_default",
             "assertionSchema": "dataform_assertions",
             "warehouse": "bigquery",
-            "defaultDatabase": "gcp-sandpit-intelia"
+            "defaultDatabase": "dan-sandpit"
         }
         
         with open(os.path.join(self.dataform_dir, "dataform.json"), "w") as f:

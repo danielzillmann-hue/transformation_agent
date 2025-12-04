@@ -7,7 +7,7 @@ from src.json_utils import safe_parse_json
 logger = logging.getLogger(__name__)
 
 class InformaticaConverter:
-    def __init__(self, project_id="gcp-sandpit-intelia", output_dir="output"):
+    def __init__(self, project_id="dan-sandpit", output_dir="output"):
         self.output_dir = output_dir
         self.dataform_dir = os.path.join(output_dir, "dataform")
         self.llm_client = LLMClient(project_id)

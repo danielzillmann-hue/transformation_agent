@@ -7,7 +7,7 @@ from src.json_utils import safe_parse_json, extract_json, repair_json
 logger = logging.getLogger(__name__)
 
 class DataCategorizer:
-    def __init__(self, project_id="gcp-sandpit-intelia", output_dir="output"):
+    def __init__(self, project_id="dan-sandpit", output_dir="output"):
         self.output_dir = output_dir
         self.llm_client = LLMClient(project_id)
 

@@ -7,7 +7,7 @@ from src.llm_client import LLMClient
 from src.prompts import SCHEMA_ANALYSIS_PROMPT, SP_ANALYSIS_PROMPT, INFORMATICA_ANALYSIS_PROMPT
 
 class AnalysisEngine:
-    def __init__(self, project_id="gcp-sandpit-intelia"):
+    def __init__(self, project_id="dan-sandpit"):
         self.llm_client = LLMClient(project_id)
 
     def analyze(self, files, status_callback=None):

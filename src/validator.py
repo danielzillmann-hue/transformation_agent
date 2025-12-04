@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class ValidationEngine:
-    def __init__(self, project_id="gcp-sandpit-intelia", output_dir="output"):
+    def __init__(self, project_id="dan-sandpit", output_dir="output"):
         self.output_dir = output_dir
         self.llm_client = LLMClient(project_id)
         os.makedirs(output_dir, exist_ok=True)
