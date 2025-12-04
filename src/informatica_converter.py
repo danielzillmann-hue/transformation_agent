@@ -1,16 +1,28 @@
 import json
 import os
 import logging
+from typing import Optional
 from src.llm_client import LLMClient
 from src.json_utils import safe_parse_json
+from src.adapters.registry import get_adapter
+from src.adapters.base import SourceAdapter
 
 logger = logging.getLogger(__name__)
 
+
 class InformaticaConverter:
-    def __init__(self, project_id="dan-sandpit", output_dir="output"):
+    """Converts Informatica PowerCenter mappings to Dataform SQLX.
+    
+    Uses source system adapter to provide function mappings for accurate
+    SQL conversion from the source database dialect to BigQuery.
+    """
+    
+    def __init__(self, project_id="dan-sandpit", output_dir="output", source_system: Optional[str] = None):
         self.output_dir = output_dir
         self.dataform_dir = os.path.join(output_dir, "dataform")
         self.llm_client = LLMClient(project_id)
+        self.adapter = get_adapter(source_system)
+        logger.info(f"InformaticaConverter initialized for source system: {self.adapter.name}")
 
     def convert_informatica_mappings(self, analysis_results, categorization_results):
         """Converts Informatica mappings to Dataform transformation SQL."""
@@ -148,8 +160,44 @@ class InformaticaConverter:
         transformations = mapping_info.get("transformations", [])
         logic_summary = mapping_info.get("logic_summary", "")
         
+        # Get function mappings from adapter to help with SQL conversion
+        function_mappings = self.adapter.get_function_mappings()
+        
+        # Format function mappings for the prompt (limit to most common ones)
+        function_hints = ""
+        if function_mappings:
+            # Select key functions that are commonly used in ETL
+            priority_functions = [
+                'NVL', 'ISNULL', 'IFNULL', 'COALESCE', 'NULLIF',
+                'TO_DATE', 'TO_CHAR', 'TO_NUMBER', 'CAST', 'CONVERT',
+                'SYSDATE', 'GETDATE', 'NOW', 'CURRENT_TIMESTAMP',
+                'SUBSTR', 'SUBSTRING', 'INSTR', 'CHARINDEX', 'LENGTH', 'LEN',
+                'TRIM', 'LTRIM', 'RTRIM', 'UPPER', 'LOWER',
+                'DECODE', 'CASE', 'IIF',
+                'NVL2', 'NULLIFZERO', 'ZEROIFNULL',
+                'ADD_MONTHS', 'DATEADD', 'DATEDIFF', 'MONTHS_BETWEEN',
+                'TRUNC', 'ROUND', 'FLOOR', 'CEIL',
+                'LISTAGG', 'STRING_AGG', 'GROUP_CONCAT',
+                'ROWNUM', 'ROW_NUMBER', 'RANK', 'DENSE_RANK'
+            ]
+            
+            relevant_mappings = {}
+            for func in priority_functions:
+                if func in function_mappings:
+                    relevant_mappings[func] = function_mappings[func]
+            
+            if relevant_mappings:
+                function_hints = f"""
+**Source Database Function Mappings** (use these to convert {self.adapter.name} SQL to BigQuery):
+```
+{json.dumps(relevant_mappings, indent=2)}
+```
+"""
+        
         # Create prompt for LLM to generate BigQuery SQL
         prompt = f"""You are an ETL expert converting Informatica PowerCenter mappings to BigQuery SQL for Dataform.
+
+**Source Database**: {self.adapter.name}
 
 **Informatica Mapping**: {mapping_name}
 
@@ -160,15 +208,17 @@ class InformaticaConverter:
 **Transformations**: {json.dumps(transformations, indent=2) if transformations else "Not explicitly defined"}
 
 **Logic Summary**: {logic_summary}
-
+{function_hints}
 **Task**: Generate a BigQuery SQL query that:
 1. Reads from the source tables (use `${{ref('table_name')}}` for Dataform references)
 2. Applies the transformation logic described
-3. Outputs to the target table(s)
+3. Converts any {self.adapter.name}-specific SQL functions to BigQuery equivalents
+4. Outputs to the target table(s)
 
 **Requirements**:
 - Use CTEs for multi-step transformations
-- Use standard BigQuery SQL syntax
+- Use standard BigQuery SQL syntax (NOT {self.adapter.name} syntax)
+- Convert all source database functions to their BigQuery equivalents
 - Include appropriate JOINs, WHERE clauses, GROUP BY, etc. based on the logic
 - Add comments explaining the transformation steps
 - If the logic is unclear, make reasonable assumptions for a typical ETL mapping
@@ -246,8 +296,14 @@ Return ONLY the SQL query, no explanation.
         logger.info(f"Created transformation: {sqlx_path}")
 
     def _domain_to_dataset(self, domain):
-        """Maps domain to dataset name."""
-        domain_mapping = {
+        """Maps domain to dataset name using adapter's domain mapping."""
+        # Use adapter's domain mapping
+        dataset = self.adapter.map_domain_to_dataset(domain)
+        if dataset != self.adapter.get_domain_mapping().get('default', 'bq_staging'):
+            return dataset
+        
+        # Fallback to legacy Crown mappings for backward compatibility
+        legacy_mapping = {
             "Customer & Loyalty Management": "crown_customer_loyalty",
             "Casino Operations & Locations": "crown_casino_operations",
             "Gaming Products & Assets": "crown_gaming_products",
@@ -256,4 +312,4 @@ Return ONLY the SQL query, no explanation.
             "Regulatory & Compliance": "crown_regulatory",
             "Reference & Time Data": "crown_reference"
         }
-        return domain_mapping.get(domain, "crown_default")
+        return legacy_mapping.get(domain, "crown_default")

@@ -142,10 +142,18 @@ class SchemaTranslator:
         if status_callback:
             status_callback("translation", "Converting Informatica mappings...", 3, 4)
         
-        # Convert Informatica transformations
+        # Convert Informatica transformations (pass source_system for function mappings)
         logger.info("Converting Informatica transformations...")
         from src.informatica_converter import InformaticaConverter
-        informatica_converter = InformaticaConverter(output_dir=self.output_dir)
+        # Get source_system name from adapter to pass to InformaticaConverter
+        source_system_name = self.adapter.name.lower().replace(" ", "").replace("-", "")
+        # Map adapter name back to config name (e.g., "Sybase ASE" -> "sybase")
+        source_system_key = None
+        for key in ["sybase", "oracle", "sqlserver", "mysql", "postgres", "teradata", "snowflake"]:
+            if key in source_system_name:
+                source_system_key = key
+                break
+        informatica_converter = InformaticaConverter(output_dir=self.output_dir, source_system=source_system_key)
         informatica_converter.convert_informatica_mappings(analysis_results, categorization_results)
         
         if status_callback:
