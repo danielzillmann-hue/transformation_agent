@@ -38,7 +38,11 @@ class ValidationEngine:
         # Determine object type for prompt context
         object_type = "table" if "table_name" in info else "procedure" if "procedure_name" in info else "mapping" if "mapping_name" in info else "unknown"
 
-        prompt = VALIDATION_TEST_PROMPT.format(object_type=object_type, analysis=json.dumps(info, indent=2))
+        prompt = VALIDATION_TEST_PROMPT.format(
+            object_type=object_type, 
+            analysis=json.dumps(info, indent=2),
+            source_system=self.adapter.name
+        )
         response = self.llm_client.generate_content(prompt)
 
         # Use safe JSON parsing with repair for LLM response
@@ -55,7 +59,7 @@ class ValidationEngine:
     def validate(self, analysis_results, status_callback=None):
         """Generates validation test definitions from analysis results in parallel.
 
-        This initial implementation does not execute tests against Sybase/BigQuery.
+        This initial implementation does not execute tests against source/BigQuery.
         It focuses on generating structured test cases and a human-readable report
         that can later be wired into automated execution.
         """

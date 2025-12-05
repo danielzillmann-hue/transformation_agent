@@ -2,8 +2,9 @@ import json
 import os
 
 class Reporter:
-    def __init__(self, output_dir="output"):
+    def __init__(self, output_dir="output", source_system: str = None):
         self.output_dir = output_dir
+        self.source_system = source_system
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
@@ -17,8 +18,11 @@ class Reporter:
 
         report_path = os.path.join(self.output_dir, "analysis_report.txt")
         
+        # Use source system name in title, default to "Schema" if not specified
+        source_name = (self.source_system or "Schema").replace("_", " ").title()
+        
         with open(report_path, "w") as f:
-            f.write("Sybase Analysis Report\n\n")
+            f.write(f"{source_name} Analysis Report\n\n")
             
             for filename, data in results.items():
                 f.write(f"File: {filename}\n")

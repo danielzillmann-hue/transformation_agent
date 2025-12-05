@@ -74,7 +74,7 @@ class DataCategorizer:
                     continue
         
         # Create prompt for domain inference
-        prompt = f"""You are analyzing a Sybase database schema for a gaming/casino business.
+        prompt = f"""You are analyzing a {self.adapter.name} database schema for a gaming/casino business.
 
 Based on the following table names and their columns, identify 5-8 high-level business data domains that best categorize this data.
 

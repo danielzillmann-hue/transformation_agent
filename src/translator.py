@@ -70,20 +70,22 @@ class SchemaTranslator:
                 self.type_mappings.update(overrides)
                 self._override_types.update(overrides.keys())
                 logger.info(
-                    "Loaded %d Sybase→BigQuery type overrides from gs://%s/%s",
+                    "Loaded %d %s→BigQuery type overrides from gs://%s/%s",
                     len(overrides),
+                    self.adapter.name,
                     bucket,
                     path,
                 )
             else:
                 logger.info(
-                    "No Sybase type overrides loaded from gs://%s/%s (file missing or empty)",
+                    "No %s type overrides loaded from gs://%s/%s (file missing or empty)",
+                    self.adapter.name,
                     bucket,
                     path,
                 )
 
     def translate(self, analysis_results, categorization_results, status_callback=None):
-        """Translates Sybase schemas to BigQuery Dataform project."""
+        """Translates source schemas to BigQuery Dataform project."""
         logger.info("Starting schema translation...")
         
         if status_callback:
@@ -103,7 +105,7 @@ class SchemaTranslator:
         if status_callback:
             status_callback("translation", f"Translating {total_tables} tables to BigQuery...", 2, 4)
         
-        # Translate Sybase tables
+        # Translate source tables
         translated_count = 0
         for filename, data in analysis_results.items():
             analysis = data.get('analysis', '')
@@ -162,7 +164,7 @@ class SchemaTranslator:
         logger.info("Schema translation complete.")
 
         # After translating all tables, write a small report listing any
-        # Sybase types that were not explicitly mapped and what BigQuery
+        # source types that were not explicitly mapped and what BigQuery
         # type was used for them. This helps users decide which new
         # entries to add to the GCS mapping file.
         self._write_type_mapping_report()
@@ -192,41 +194,16 @@ class SchemaTranslator:
         with open(os.path.join(self.dataform_dir, "dataform.json"), "w") as f:
             json.dump(dataform_config, f, indent=2)
         
-        # Create includes/type_mappings.js
-        type_mappings_js = """// Sybase to BigQuery type mappings
-function mapSybaseType(sybaseType) {
-  const mappings = {
-    'INT': 'INT64',
-    'INTEGER': 'INT64',
-    'SMALLINT': 'INT64',
-    'TINYINT': 'INT64',
-    'BIGINT': 'INT64',
-    'DECIMAL': 'NUMERIC',
-    'NUMERIC': 'NUMERIC',
-    'MONEY': 'NUMERIC(19,4)',
-    'SMALLMONEY': 'NUMERIC(10,4)',
-    'FLOAT': 'FLOAT64',
-    'REAL': 'FLOAT64',
-    'CHAR': 'STRING',
-    'VARCHAR': 'STRING',
-    'TEXT': 'STRING',
-    'NCHAR': 'STRING',
-    'NVARCHAR': 'STRING',
-    'NTEXT': 'STRING',
-    'DATETIME': 'TIMESTAMP',
-    'SMALLDATETIME': 'TIMESTAMP',
-    'DATE': 'DATE',
-    'TIME': 'TIME',
-    'BIT': 'BOOL',
-    'BINARY': 'BYTES',
-    'VARBINARY': 'BYTES',
-    'IMAGE': 'BYTES'
-  };
+        # Create includes/type_mappings.js with source-specific mappings
+        source_name = self.adapter.name.replace(" ", "")
+        type_mappings_js = f"""// {self.adapter.name} to BigQuery type mappings
+function mapSourceType(sourceType) {{
+  const mappings = {json.dumps(self.type_mappings, indent=4)};
   
-  return mappings[sybaseType.toUpperCase()] || 'STRING';
-}
+  return mappings[sourceType.toUpperCase()] || 'STRING';
+}}
 
-module.exports = { mapSybaseType };
+module.exports = {{ mapSourceType }};
 """
         
         with open(os.path.join(self.dataform_dir, "includes", "type_mappings.js"), "w") as f:
@@ -243,11 +220,11 @@ module.exports = { mapSybaseType };
         bq_columns = []
         for col in columns:
             col_name = col.get("name")
-            sybase_type = col.get("type", "STRING")
+            source_type = col.get("type", "STRING")
             nullable = col.get("nullable", True)
             
             # Map type
-            bq_type = self._map_type(sybase_type)
+            bq_type = self._map_type(source_type)
             
             # Build column definition
             null_constraint = "" if nullable else " NOT NULL"
@@ -312,10 +289,10 @@ module.exports = { mapSybaseType };
         
         logger.info(f"Created {sqlx_path}")
 
-    def _map_type(self, sybase_type):
-        """Maps Sybase type to BigQuery type."""
+    def _map_type(self, source_type):
+        """Maps source database type to BigQuery type."""
         # Extract base type (remove size/precision)
-        base_type = re.split(r'[\(\[]', sybase_type.upper())[0].strip()
+        base_type = re.split(r'[\(\[]', source_type.upper())[0].strip()
         
         if base_type in self.type_mappings:
             return self.type_mappings[base_type]
@@ -327,16 +304,16 @@ module.exports = { mapSybaseType };
         return fallback
 
     def _write_type_mapping_report(self):
-        """Write a report of unmapped Sybase types encountered in this run."""
+        """Write a report of unmapped source types encountered in this run."""
         if not self._unmapped_types:
             return
 
         report_path = os.path.join(self.output_dir, "type_mapping_report.txt")
         try:
             with open(report_path, "w", encoding="utf-8") as f:
-                f.write("Type Mapping Report\n\n")
+                f.write(f"{self.adapter.name} Type Mapping Report\n\n")
                 f.write(
-                    "The following Sybase base types were encountered during translation "
+                    f"The following {self.adapter.name} base types were encountered during translation "
                     "but did not have explicit mappings in the built-in table or the "
                     "GCS override file. The agent defaulted them as shown below.\n\n"
                 )
@@ -349,7 +326,7 @@ module.exports = { mapSybaseType };
             logger.warning("Failed to write type mapping report: %s", e)
 
     def _load_type_overrides_from_gcs(self, bucket_name: str, blob_path: str):
-        """Load Sybase→BigQuery type overrides from a text file in GCS.
+        """Load source→BigQuery type overrides from a text file in GCS.
 
         File format (lines):
             SMALL_IDENTIFIER=INT64
@@ -438,7 +415,7 @@ module.exports = { mapSybaseType };
         config_lines = [
             '  type: "table",',
             f'  schema: "{dataset}",',
-            f'  description: "Migrated from Sybase - {domain}"'
+            f'  description: "Migrated from {self.adapter.name} - {domain}"'
         ]
 
         # Optional BigQuery-specific settings
@@ -454,10 +431,10 @@ module.exports = { mapSybaseType };
         config_block = "config {\n" + "\n".join(config_lines) + "\n}\n\n"
         
         # Generate SELECT statement
-        select_statement = "SELECT\n" + ",\n".join(columns) + "\nFROM `${ref('sybase_source')}`"
+        select_statement = "SELECT\n" + ",\n".join(columns) + "\nFROM `${{ref('source_table')}}`"
         
         sqlx = f"""-- Dataform table definition for {table_name}
--- Source: Sybase
+-- Source: {self.adapter.name}
 -- Domain: {domain}
 -- Dataset: {dataset}
 
@@ -709,7 +686,7 @@ module.exports = { mapSybaseType };
         config_lines = [
             '  type: "incremental",',
             f'  schema: "{dataset}",',
-            f'  description: "SCD Type 2 dimension - {table_name} (migrated from Sybase)",',
+            f'  description: "SCD Type 2 dimension - {table_name} (migrated from {self.adapter.name})",',
             f'  uniqueKey: [{unique_key_list}, "effective_from"],',
         ]
         
@@ -726,7 +703,7 @@ module.exports = { mapSybaseType };
         config_block = "config {\n" + "\n".join(config_lines) + "\n}\n\n"
         
         sqlx = f"""-- Dataform SCD Type 2 dimension table for {table_name}
--- Source: Sybase
+-- Source: {self.adapter.name}
 -- Domain: {domain}
 -- Dataset: {dataset}
 -- 
@@ -807,7 +784,7 @@ SELECT * FROM new_records
         config_lines = [
             '  type: "incremental",',
             f'  schema: "{dataset}",',
-            f'  description: "Incremental table - {table_name} (migrated from Sybase)",',
+            f'  description: "Incremental table - {table_name} (migrated from {self.adapter.name})",',
             f'  uniqueKey: [{unique_key_list}],',
         ]
         
@@ -825,7 +802,7 @@ SELECT * FROM new_records
         
         # For incremental, we select only new/changed records
         sqlx = f"""-- Dataform incremental table for {table_name}
--- Source: Sybase
+-- Source: {self.adapter.name}
 -- Domain: {domain}
 -- Dataset: {dataset}
 -- Merge Keys: {", ".join(merge_keys)}

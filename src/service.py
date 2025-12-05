@@ -105,7 +105,7 @@ def run_pipeline(config: dict, status_callback: StatusCallback = None) -> dict:
         results = analyzer.analyze(files, status_callback=status)
 
     status("reporting", "Generating analysis report...")
-    reporter = Reporter(output_dir=output_dir)
+    reporter = Reporter(output_dir=output_dir, source_system=source_system)
     reporter.generate_report(results)
 
     status("visualization", "Creating dependency diagram...")

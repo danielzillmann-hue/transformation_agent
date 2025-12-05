@@ -41,7 +41,7 @@ XML Content:
 VALIDATION_TEST_PROMPT = """
 You are a data migration validation expert. Based on the following analyzed {object_type},
 generate a structured set of data validation test cases that can be used to compare
-results between the legacy Sybase warehouse and the new BigQuery implementation.
+results between the legacy {source_system} warehouse and the new BigQuery implementation.
 
 The analysis JSON is:
 {analysis}
@@ -59,7 +59,7 @@ Return ONLY a JSON object with the following structure:
   "test_cases": [
     {{
       "name": "Row count comparison",
-      "description": "Verify that the total number of rows matches between Sybase and BigQuery.",
+      "description": "Verify that the total number of rows matches between {source_system} and BigQuery.",
       "sql": "SELECT COUNT(*) AS row_count FROM <table>",
       "expected": {{
         "comparison": "equality_between_systems"
