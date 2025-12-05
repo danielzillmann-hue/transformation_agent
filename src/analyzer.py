@@ -59,22 +59,35 @@ class AnalysisEngine:
 
     def _analyze_single_file(self, blob):
         """Analyze a single file - designed for parallel execution."""
-        # Use adapter for file categorization
-        file_type = self.adapter.categorize_file(blob.name)
-        logger.info(f"Analyzing {blob.name} as {file_type}")
-        
-        content = self._read_blob_content(blob)
-        
-        analysis_result = "Skipped"
-        if content:
-            prompt = self._get_prompt(file_type, content)
-            if prompt:
-                analysis_result = self.llm_client.generate_content(prompt)
-        
-        return blob.name, {
-            "type": file_type,
-            "analysis": analysis_result
-        }
+        try:
+            # Use adapter for file categorization
+            file_type = self.adapter.categorize_file(blob.name)
+            logger.info(f"Analyzing {blob.name} as {file_type}")
+            
+            content = self._read_blob_content(blob)
+            
+            analysis_result = "Skipped"
+            if content:
+                prompt = self._get_prompt(file_type, content)
+                if prompt:
+                    analysis_result = self.llm_client.generate_content(prompt)
+                else:
+                    analysis_result = "Skipped - no prompt for file type"
+                    logger.warning(f"No prompt available for {blob.name} (type: {file_type})")
+            else:
+                analysis_result = "Error: Could not read file content"
+                logger.error(f"Could not read content from {blob.name}")
+            
+            return blob.name, {
+                "type": file_type,
+                "analysis": analysis_result
+            }
+        except Exception as e:
+            logger.error(f"Exception analyzing {blob.name}: {e}")
+            return blob.name, {
+                "type": "unknown",
+                "analysis": f"Error: {e}"
+            }
 
     def analyze(self, files, status_callback=None):
         """Analyzes the provided files in parallel."""
@@ -96,17 +109,23 @@ class AnalysisEngine:
             # Collect results as they complete
             for future in as_completed(future_to_blob):
                 blob = future_to_blob[future]
+                completed += 1
                 try:
                     filename, result = future.result()
                     results[filename] = result
-                    completed += 1
                     
                     if status_callback:
                         status_callback("analysis", f"Analyzed {completed}/{total_files}: {blob.name}", completed, total_files)
                         
                 except Exception as e:
-                    logger.error(f"Failed to analyze {blob.name}: {e}")
-                    completed += 1
+                    # Even on exception, add an error result so we don't lose track of the file
+                    logger.error(f"Future exception for {blob.name}: {e}")
+                    results[blob.name] = {
+                        "type": "unknown",
+                        "analysis": f"Error: {e}"
+                    }
+                    if status_callback:
+                        status_callback("analysis", f"Error {completed}/{total_files}: {blob.name}", completed, total_files)
         
         if status_callback:
             status_callback("analysis", f"Analysis complete: {len(results)} files processed", total_files, total_files)
