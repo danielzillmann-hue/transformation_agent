@@ -316,10 +316,10 @@ prompts:
     - table_name: The name of the table
     - database: The database name if specified
     - engine: Storage engine (InnoDB, MyISAM, etc.)
-    - columns: Array of {name, type, length, nullable, default_value, auto_increment, on_update}
+    - columns: Array of objects with keys: name, type, length, nullable, default_value, auto_increment, on_update
     - primary_keys: Array of column names forming the primary key
-    - foreign_keys: Array of {columns, references_table, references_columns, on_delete, on_update}
-    - indexes: Array of {name, columns, is_unique, type (BTREE, HASH, FULLTEXT)}
+    - foreign_keys: Array of objects with keys: columns, references_table, references_columns, on_delete, on_update
+    - indexes: Array of objects with keys: name, columns, is_unique, type (BTREE, HASH, FULLTEXT)
     - charset: Character set
     - collation: Collation
     - description: Brief description of the table's purpose
@@ -334,7 +334,7 @@ prompts:
     - object_name: Name of the procedure/function
     - object_type: PROCEDURE or FUNCTION
     - definer: The definer if specified
-    - parameters: Array of {name, type, direction (IN/OUT/INOUT)}
+    - parameters: Array of objects with keys: name, type, direction (IN/OUT/INOUT)
     - return_type: For functions, the return data type
     - tables_read: Array of table names read
     - tables_modified: Array of table names modified
@@ -353,8 +353,8 @@ prompts:
     - name: Name of the transformation/job
     - type: TRANSFORMATION or JOB
     - connections: Array of database connections
-    - steps: Array of {name, type, description} for transformations
-    - entries: Array of {name, type, description} for jobs
+    - steps: Array of objects with keys: name, type, description (for transformations)
+    - entries: Array of objects with keys: name, type, description (for jobs)
     - hops: Array of connections between steps
     - parameters: Array of parameters
     - variables: Array of variables

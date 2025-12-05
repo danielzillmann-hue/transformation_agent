@@ -234,10 +234,10 @@ prompts:
     
     Extract the following information in JSON format:
     - table_name: The name of the table
-    - columns: Array of {name, type, nullable, default_value, is_identity}
+    - columns: Array of objects with keys: name, type, nullable, default_value, is_identity
     - primary_keys: Array of column names forming the primary key
-    - foreign_keys: Array of {columns, references_table, references_columns}
-    - indexes: Array of {name, columns, is_unique}
+    - foreign_keys: Array of objects with keys: columns, references_table, references_columns
+    - indexes: Array of objects with keys: name, columns, is_unique
     - description: Brief description of the table's purpose based on its structure
     
     DDL Content:
@@ -248,7 +248,7 @@ prompts:
     
     Extract the following information in JSON format:
     - procedure_name: Name of the procedure
-    - parameters: Array of {name, type, direction (IN/OUT/INOUT)}
+    - parameters: Array of objects with keys: name, type, direction (IN/OUT/INOUT)
     - tables_read: Array of table names read by this procedure
     - tables_modified: Array of table names modified (INSERT/UPDATE/DELETE)
     - logic_summary: Brief description of what the procedure does
@@ -264,7 +264,7 @@ prompts:
     - mapping_name: Name of the mapping
     - sources: Array of source table/file names
     - targets: Array of target table names
-    - transformations: Array of {name, type} for key transformations
+    - transformations: Array of objects with keys: name, type
     - logic_summary: Brief description of the ETL logic
     
     XML Content:

@@ -387,13 +387,13 @@ prompts:
     Extract the following information in JSON format:
     - table_name: The name of the table
     - schema: The schema (e.g., public, sales)
-    - columns: Array of {name, type, nullable, default_value, is_serial, is_generated}
+    - columns: Array of objects with keys: name, type, nullable, default_value, is_serial, is_generated
     - primary_keys: Array of column names forming the primary key
-    - foreign_keys: Array of {columns, references_schema, references_table, references_columns, on_delete, on_update}
-    - indexes: Array of {name, columns, is_unique, method (btree, hash, gin, gist), where_clause}
-    - check_constraints: Array of {name, definition}
-    - exclusion_constraints: Array of {name, definition}
-    - partitioning: {strategy (RANGE, LIST, HASH), key_columns} if partitioned
+    - foreign_keys: Array of objects with keys: columns, references_schema, references_table, references_columns, on_delete, on_update
+    - indexes: Array of objects with keys: name, columns, is_unique, method (btree, hash, gin, gist), where_clause
+    - check_constraints: Array of objects with keys: name, definition
+    - exclusion_constraints: Array of objects with keys: name, definition
+    - partitioning: object with keys strategy (RANGE, LIST, HASH), key_columns (if partitioned)
     - inherits: Parent table if using inheritance
     - description: Brief description of the table's purpose
     
@@ -408,7 +408,7 @@ prompts:
     - object_type: FUNCTION or PROCEDURE
     - schema: The schema
     - language: The procedural language (plpgsql, sql, plpython, etc.)
-    - parameters: Array of {name, type, mode (IN/OUT/INOUT/VARIADIC), default_value}
+    - parameters: Array of objects with keys: name, type, mode (IN/OUT/INOUT/VARIADIC), default_value
     - return_type: Return type (including SETOF, TABLE, etc.)
     - volatility: VOLATILE, STABLE, or IMMUTABLE
     - tables_read: Array of [schema].[table] names read

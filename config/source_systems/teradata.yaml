@@ -369,9 +369,9 @@ prompts:
     - table_name: The name of the table
     - database: The database name
     - table_kind: SET or MULTISET
-    - columns: Array of {name, type, format, nullable, default_value, title, compress_values}
-    - primary_index: {columns, is_unique} - Teradata's primary index
-    - secondary_indexes: Array of {name, columns, is_unique}
+    - columns: Array of objects with keys: name, type, format, nullable, default_value, title, compress_values
+    - primary_index: object with keys columns, is_unique (Teradata's primary index)
+    - secondary_indexes: Array of objects with keys: name, columns, is_unique
     - partition_by: Partitioning expression if partitioned
     - fallback: true/false for FALLBACK protection
     - journal: BEFORE/AFTER/DUAL journal settings
@@ -388,7 +388,7 @@ prompts:
     - object_name: Name of the procedure/macro
     - object_type: PROCEDURE or MACRO
     - database: The database
-    - parameters: Array of {name, type, direction (IN/OUT/INOUT)}
+    - parameters: Array of objects with keys: name, type, direction (IN/OUT/INOUT)
     - sql_security: CREATOR or DEFINER
     - tables_read: Array of database.table names read
     - tables_modified: Array of database.table names modified

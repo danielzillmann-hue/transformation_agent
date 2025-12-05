@@ -430,9 +430,9 @@ prompts:
     - database: The database name
     - schema: The schema name
     - table_type: PERMANENT, TEMPORARY, TRANSIENT, EXTERNAL
-    - columns: Array of {name, type, nullable, default_value, identity, comment}
+    - columns: Array of objects with keys: name, type, nullable, default_value, identity, comment
     - primary_keys: Array of column names forming the primary key
-    - foreign_keys: Array of {columns, references_database, references_schema, references_table, references_columns}
+    - foreign_keys: Array of objects with keys: columns, references_database, references_schema, references_table, references_columns
     - unique_keys: Array of unique constraints
     - clustering_key: Clustering key columns if defined
     - data_retention_days: Time travel retention period
@@ -453,7 +453,7 @@ prompts:
     - database: The database
     - schema: The schema
     - language: SQL, JAVASCRIPT, PYTHON, JAVA, SCALA
-    - parameters: Array of {name, type, default_value}
+    - parameters: Array of objects with keys: name, type, default_value
     - return_type: Return type
     - tables_read: Array of fully qualified table names read
     - tables_modified: Array of fully qualified table names modified

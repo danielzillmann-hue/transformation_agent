@@ -239,11 +239,11 @@ prompts:
     Extract the following information in JSON format:
     - table_name: The name of the table (without schema prefix)
     - schema: The schema/owner if specified
-    - columns: Array of {name, type, precision, scale, nullable, default_value}
+    - columns: Array of objects with keys: name, type, precision, scale, nullable, default_value
     - primary_keys: Array of column names forming the primary key
-    - foreign_keys: Array of {columns, references_table, references_columns, constraint_name}
-    - indexes: Array of {name, columns, is_unique, tablespace}
-    - partitioning: {type, columns} if partitioned
+    - foreign_keys: Array of objects with keys: columns, references_table, references_columns, constraint_name
+    - indexes: Array of objects with keys: name, columns, is_unique, tablespace
+    - partitioning: object with keys type, columns (if partitioned)
     - description: Brief description of the table's purpose
     
     DDL Content:
@@ -255,7 +255,7 @@ prompts:
     Extract the following information in JSON format:
     - object_name: Name of the procedure/function/package
     - object_type: PROCEDURE, FUNCTION, or PACKAGE
-    - parameters: Array of {name, type, direction (IN/OUT/IN OUT), default_value}
+    - parameters: Array of objects with keys: name, type, direction (IN/OUT/IN OUT), default_value
     - return_type: For functions, the return data type
     - tables_read: Array of table names read
     - tables_modified: Array of table names modified
